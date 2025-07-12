@@ -65,6 +65,34 @@ public class TokenBasedSimilarity {
 
 /*
 
+---
+
+## 📘 Token-Based Similarity – Introduction
+
+**Token-Based Similarity** compares two code snippets by converting them into sets of tokens (identifiers, keywords, etc.) and measuring how many tokens overlap.
+
+---
+
+### 🔍 Why it's useful in code review:
+
+* Detects **logical similarity** despite variable renaming or formatting.
+* Works across **all programming languages**.
+* Useful for **plagiarism detection** at a structural level.
+
+---
+
+### 📊 Time and Space Complexity:
+
+| Complexity       | Value                             |
+| ---------------- | --------------------------------- |
+| Time Complexity  | `O(n + m)` – token count based    |
+| Space Complexity | `O(n + m)` – uses sets internally |
+
+---
+
+
+
+
 ******************************OUTPUT************************************
 Enter CODE 1 code (type 'EOF' in a new line to finish):
 public class BubbleSort {
