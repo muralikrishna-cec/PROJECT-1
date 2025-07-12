@@ -1,6 +1,3 @@
-That’s a **perfect plan for a beginner** 👏 — and you’ve chosen **really good resources** too!
-
-Let me quickly walk you through and offer a few suggestions to make your day **productive but not overwhelming**.
 
 ---
 
@@ -77,13 +74,7 @@ Let me quickly walk you through and offer a few suggestions to make your day **p
 
 ---
 
-If you want, I can make a **Notion or PDF checklist** for this with tick boxes ✅
-Want me to?
 
-
-
-
-Great! Once you finish JavaScript → TypeScript → Angular basics, you’ll be ready to tackle the **backend** side. Since your project uses **Java + Spring Boot**, we’ll structure the backend learning path **step-by-step**, even if you’re a beginner.
 
 ---
 
@@ -241,9 +232,6 @@ Great! Once you finish JavaScript → TypeScript → Angular basics, you’ll be
 ✔️ Optional: Admin dashboard + caching
 
 ---
-
-Let me know if you want a **PDF checklist** or a **Notion plan** to follow through. Or I can help you start with your first backend controller 🚀
-
 
 
 
