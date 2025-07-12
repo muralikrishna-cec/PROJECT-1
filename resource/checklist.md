@@ -110,19 +110,3 @@
 * [ ] AI cache table (if persistent cache used)
 
 ---
-
-### ✅ Project Output Checklist (What to Deliver)
-
-| Deliverable                | Status |
-| -------------------------- | ------ |
-| Working Web App            | \[ ] ✅ |
-| Frontend (Angular) Code    | \[ ] ✅ |
-| Backend (Spring Boot) Code | \[ ] ✅ |
-| Database (Mongo/MySQL)     | \[ ] ✅ |
-| PDF Project Report         | \[ ] ✅ |
-| Viva-ready Explanation     | \[ ] ✅ |
-| Screenshots/Video Demo     | \[ ] ✅ |
-| GitHub Repo                | \[ ] ✅ |
-
----
-
