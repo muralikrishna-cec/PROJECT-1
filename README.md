@@ -29,15 +29,15 @@ An AI-powered web application for analyzing, reviewing, and comparing source cod
 ---
 
 ## 🏗️ Project Structure
-AI-CODE-REVIEW-ASSISTANT/
-├── backend/ # Spring Boot APIs, static analysis, AI, plagiarism checker
-├── frontend/ # Angular frontend for code input and result visualization
-├── resource/ # Supporting materials (checklist, abstract, sample UI, docs)
-│ ├── checklist.pdf
-│ ├── abstract.pdf
-│ ├── sample_ui.png
-│ └── t_docs/
-└── README.md
+- AI-CODE-REVIEW-ASSISTANT/
+- ├── backend/ # Spring Boot APIs, static analysis, AI, plagiarism checker
+- ├── frontend/ # Angular frontend for code input and result visualization
+- ├── resource/ # Supporting materials (checklist, abstract, sample UI, docs)
+- │ ├── checklist.pdf
+- │ ├── abstract.pdf
+- │ ├── sample_ui.png
+- │ └── t_docs/
+- └── README.md
 
 
 ---
