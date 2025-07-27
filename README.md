@@ -1,7 +1,4 @@
 
----
-
-```
 # 💡 AI-CODE-REVIEW-ASSISTANT
 
 An AI-powered web application for analyzing, reviewing, and comparing source code using static analysis, AI suggestions, and plagiarism detection.
@@ -36,7 +33,7 @@ An AI-powered web application for analyzing, reviewing, and comparing source cod
 
 ## 🏗️ Project Structure
 
-```
+
 
 AI-CODE-REVIEW-ASSISTANT/
 ├── Algorithms/           # Java logic for static analysis, Levenshtein, token-based
@@ -45,7 +42,7 @@ AI-CODE-REVIEW-ASSISTANT/
 ├── local-llm/             # AI model
 └── README.md             # You're here!
 
-```
+
 
 ---
 
@@ -77,13 +74,13 @@ AI-CODE-REVIEW-ASSISTANT/
 ## 🧪 Sample API Usage
 
 ### Static Analysis:
-```
+
 
 POST /api/analyze
 Content-Type: text/plain
 Body: <Java code>
 
-```
+
 
 ### Plagiarism Detection:
 ```
@@ -97,14 +94,14 @@ POST /api/plagiarism
 ```
 
 ### AI Suggestion (TinyLLaMA):
-```
+
 
 POST [http://localhost:5000/chat](http://localhost:5000/chat)
 {
 "prompt": "Review the following Java code and suggest improvements: ..."
 }
 
-````
+
 
 ---
 
@@ -141,7 +138,7 @@ POST [http://localhost:5000/chat](http://localhost:5000/chat)
 
 ✅ Now your backend can send code prompts to TinyLLaMA for suggestions!
 
----
+
 
 ## 📁 Resources
 
