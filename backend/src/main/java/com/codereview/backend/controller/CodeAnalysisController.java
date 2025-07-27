@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import com.codereview.backend.model.PlagiarismRequest;
 import com.codereview.backend.service.PlagiarismService;
 
+
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api")
 public class CodeAnalysisController {
