@@ -32,8 +32,15 @@ public class CodeAnalysisController {
 
     @PostMapping("/plagiarism")
     public ResponseEntity<String> checkPlagiarism(@RequestBody PlagiarismRequest request) {
-        double similarity = plagiarismService.checkPlagiarism(request.getCode1(), request.getCode2());
-        return ResponseEntity.ok(String.format("Similarity: %.2f%%", similarity));
+
+        double levenshteinSim = plagiarismService.checkPlagiarism(request.getCode1(), request.getCode2());
+        double tokenSim = plagiarismService.checkTokenSimilarity(request.getCode1(), request.getCode2());
+
+        String result = String.format(
+                "📘 Levenshtein Similarity: %.2f%%\n🔠 Token Similarity: %.2f%%", levenshteinSim, tokenSim);
+
+        return ResponseEntity.ok(result);
+
     }
 
     @PostMapping("/ai-suggest")
