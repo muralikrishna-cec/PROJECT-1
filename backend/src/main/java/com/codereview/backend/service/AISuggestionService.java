@@ -17,6 +17,7 @@ public class AISuggestionService {
             RestTemplate restTemplate = new RestTemplate();
 
             Map<String, String> request = new HashMap<>();
+            request.put("prompt", "You are a senior software engineer. Analyze the following " + language + " code for errors, bad practices, and improvements. Give code suggestions and explain clearly like a mentor.");
             request.put("code", code);
             request.put("language", language);
 
