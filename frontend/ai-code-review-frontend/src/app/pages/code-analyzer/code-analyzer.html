@@ -1,0 +1,105 @@
+<div class="min-h-screen bg-gray-900 text-gray-100 px-6 py-16">
+    <div class="max-w-7xl mx-auto space-y-12">
+  
+      <!-- 🔠 Heading -->
+      <div class="text-center space-y-4">
+        <h2 class="text-4xl md:text-5xl font-extrabold text-green-400 animate-fadeInUp">
+          🧪 Java Code Analyzer
+        </h2>
+        <p class="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto animate-fadeInUp">
+          Paste your Java code below to get real-time metrics, insights, and interactive flowcharts powered by AI.
+        </p>
+      </div>
+  
+      <!-- 📝 Code Input -->
+      <div class="bg-gray-800 p-6 rounded-xl shadow-lg space-y-4 animate-fadeInUp">
+        <textarea [(ngModel)]="userCode"
+                  placeholder="Paste your Java code here..."
+                  rows="10"
+                  class="w-full bg-gray-900 text-white p-4 rounded-lg border border-gray-700 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500">
+        </textarea>
+  
+        <div class="flex flex-col sm:flex-row justify-between gap-4">
+          <button (click)="submitCode()" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-semibold transition duration-300">
+            🚀 Submit
+          </button>
+          <button class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded-lg font-semibold transition duration-300">
+            🤖 AI Suggestions
+          </button>
+        </div>
+      </div>
+  
+      <!-- 📊 Metrics Section -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeInUp">
+        <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+          <h4 class="text-lg font-semibold text-green-400 mb-2">📏 LOC</h4>
+          <p class="text-3xl font-bold text-white">{{ metrics.loc }}</p>
+        </div>
+  
+        <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+          <h4 class="text-lg font-semibold text-green-400 mb-2">🧩 Complexity</h4>
+          <p class="text-3xl font-bold text-white">{{ metrics.complexity }}</p>
+        </div>
+  
+        <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+          <h4 class="text-lg font-semibold text-green-400 mb-4">🌟 Quality Score</h4>
+          <div class="relative w-24 h-24 mx-auto">
+            <svg class="w-full h-full transform -rotate-90">
+              <circle class="text-gray-600"
+                      stroke-width="10"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="45"
+                      cx="50%" cy="50%" />
+              <circle class="text-green-400"
+                      stroke-width="10"
+                      [attr.stroke-dasharray]="getCircumference(45)"
+                      [attr.stroke-dashoffset]="getStrokeOffset(metrics.score)"
+                      stroke-linecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                      r="45"
+                      cx="50%" cy="50%" />
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center text-xl font-bold text-green-300">
+              {{ metrics.score }}%
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <!-- 📘 Report + 📈 Visualization Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeInUp">
+  
+        <!-- 📘 Static Report -->
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+          <h3 class="text-2xl font-bold text-green-400 mb-6 flex items-center gap-2">📘 Static Analysis Report</h3>
+          
+          <ng-container *ngFor="let section of formattedOutput">
+            <div *ngIf="section.body && section.body.trim().length > 10" class="mb-6 border-l-4 border-green-400 pl-4">
+              <h4 class="text-base font-semibold text-green-300 mb-2 flex items-center gap-2">
+                🔹 {{ section.title }}
+              </h4>
+              <div class="bg-gray-900 text-gray-100 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto">
+                {{ section.body }}
+              </div>
+            </div>
+          </ng-container>
+  
+          <button (click)="copyReport()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
+            📋 Copy Full Report
+          </button>
+        </div>
+  
+        <!-- 📈 Mermaid Flowchart -->
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+          <h3 class="text-2xl font-bold text-green-400 mb-6 flex items-center gap-2">📈 Code Flow Visualization</h3>
+          <div class="bg-gray-900 p-4 rounded overflow-x-auto text-gray-100 text-sm min-h-[200px]">
+            <div id="mermaid-container" class="mermaid text-white"></div>
+          </div>
+        </div>
+  
+      </div>
+    </div>
+  </div>
+  

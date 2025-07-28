@@ -1,0 +1,21 @@
+textarea {
+    font-family: monospace;
+    resize: vertical;
+  }
+  
+  .mermaid {
+    background-color: #f9fafb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  
+
+  
+  
+  button {
+    transition: all 0.3s ease;
+  }
+  

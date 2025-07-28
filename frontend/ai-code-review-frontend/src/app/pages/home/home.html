@@ -1,0 +1,114 @@
+<!-- HERO Section -->
+<section
+  id="hero"
+  class="relative overflow-hidden min-h-screen bg-gray-900 text-gray-100 flex flex-col justify-center items-center px-6">
+  <!-- Animated blobs background -->
+  <div class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden" aria-hidden="true">
+    <div class="absolute bg-green-400 opacity-30 rounded-full w-72 h-72 top-24 left-12 animate-blob animation-delay-2000"></div>
+    <div class="absolute bg-cyan-400 opacity-25 rounded-full w-96 h-96 top-40 right-16 animate-blob animation-delay-4500"></div>
+    <div class="absolute bg-teal-400 opacity-28 rounded-full w-80 h-80 bottom-16 left-1/2 transform -translate-x-1/2 animate-blob animation-delay-7000"></div>
+  </div>
+
+  <!-- Hero Content -->
+  <div class="relative z-10 max-w-4xl text-center space-y-8 px-4">
+    <h1 class="text-5xl md:text-6xl font-extrabold leading-tight drop-shadow-lg animate-fadeInUp">
+      Welcome to AI Code Review Assistant
+    </h1>
+
+    <p class="text-xl md:text-2xl font-light max-w-3xl mx-auto drop-shadow-md animate-fadeInUp animation-delay-2000">
+      Effortlessly analyze, visualize, and enhance your Java code with AI-powered insights and tools.
+    </p>
+
+    <div class="space-x-6 mt-6 animate-fadeInUp animation-delay-1000">
+      <a
+        routerLink="/analyzer"
+        class="inline-block bg-green-500 hover:bg-green-600 transition px-8 py-3 rounded-lg font-semibold shadow-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+      >
+        Get Started
+      </a>
+      <a
+        (click)="scrollTo('about')"
+        class="inline-block border-2 border-green-500 hover:border-green-400 transition px-8 py-3 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-400"
+      >
+        Learn More
+      </a>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- SERVICES / Features Section -->
+<section id="services" class="relative z-10  bg-gray-900 py-24 px-6 text-white">
+  <div class="max-w-7xl mx-auto text-center mb-14">
+    <h2 class="text-4xl font-extrabold animate-fadeInUp drop-shadow-xl">Powerful Features</h2>
+    <p class="text-lg text-gray-300 mt-4 animate-fadeInUp animation-delay-500">
+      Everything you need to analyze, improve and secure your code.
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-10 max-w-6xl mx-auto">
+    <!-- AI Suggestions Card -->
+    <div class="bg-gradient-to-tr from-green-800 to-teal-600 rounded-2xl shadow-2xl p-8 transform transition hover:scale-105 hover:shadow-green-500/40 animate-fadeInUp">
+      <div class="text-4xl mb-4">🤖</div>
+      <h3 class="text-2xl font-semibold mb-2">AI Suggestions</h3>
+      <p class="text-sm leading-relaxed text-gray-100">
+        Get intelligent, language-specific improvement tips powered by TinyLLaMA AI engine.
+      </p>
+      <a routerLink="/ai-suggest" class="inline-block mt-4 text-green-300 hover:text-green-400 underline">Explore</a>
+    </div>
+
+    <!-- Plagiarism Detection Card -->
+    <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 transform transition hover:scale-105 hover:shadow-indigo-400/40 animate-fadeInUp animation-delay-500">
+      <div class="text-4xl mb-4">🔍</div>
+      <h3 class="text-2xl font-semibold mb-2">Plagiarism Checker</h3>
+      <p class="text-sm leading-relaxed text-gray-300">
+        Detect code similarity using token-based and Levenshtein algorithms for academic and industry checks.
+      </p>
+      <a routerLink="/plagiarism" class="inline-block mt-4 text-indigo-300 hover:text-indigo-400 underline">Try Now</a>
+    </div>
+
+    <!-- Static Analysis Card -->
+    <div class="bg-indigo-900 rounded-2xl shadow-2xl p-8 transform transition hover:scale-105 hover:shadow-indigo-500/50 animate-fadeInUp animation-delay-1000">
+      <div class="text-4xl mb-4">📊</div>
+      <h3 class="text-2xl font-semibold mb-2">Static Analysis</h3>
+      <p class="text-sm leading-relaxed text-gray-100">
+        Understand your Java code via structural metrics, flowcharts, and AI insights using JavaParser.
+      </p>
+      <a routerLink="/analyzer" class="inline-block mt-4 text-indigo-300 hover:text-indigo-400 underline">Analyze Code</a>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- ABOUT Section -->
+<section id="about" class="relative z-10 bg-gradient-to-br bg-gray-900 text-white py-24 px-6">
+  <div class="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+    <!-- About the Project -->
+    <div class="space-y-6 animate-fadeInUp">
+      <h2 class="text-4xl font-extrabold mb-4">About the Project</h2>
+      <p class="text-lg text-gray-300">
+        AI Code Review Assistant is an all-in-one tool for developers, educators, and students to review Java code intelligently.
+        It combines traditional static analysis, flowchart visualization, plagiarism checks, and AI-driven suggestions to enhance productivity and code quality.
+      </p>
+      <ul class="list-disc list-inside text-gray-400 space-y-1">
+        <li>JavaParser-powered static metrics</li>
+        <li>Flowchart with Mermaid.js integration</li>
+        <li>Local AI Model (TinyLLaMA) suggestions</li>
+        <li>Token & Levenshtein-based plagiarism checker</li>
+      </ul>
+    </div>
+
+    <!-- About the Developer -->
+    <div class="flex flex-col items-center justify-center text-center space-y-4 animate-fadeInUp animation-delay-500">
+      <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Murali Krishna" class="w-36 h-36 rounded-full shadow-xl border-4 border-green-400" />
+      <h3 class="text-2xl font-bold">Murali Krishna</h3>
+      <p class="text-sm text-gray-400">College of Engineering, Chengannur</p>
+      <p class="text-gray-300 text-sm max-w-xs">
+        Passionate MCA student building full-stack apps with AI, Java, and Angular.
+      </p>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,6 @@
+/* Optional custom styling, or just rely on Tailwind */
+
+footer a {
+    font-weight: 600;
+  }
+  

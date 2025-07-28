@@ -1,0 +1,17 @@
+textarea {
+    font-family: monospace;
+    line-height: 1.5;
+  }
+  
+  pre {
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: block;
+  }
+  

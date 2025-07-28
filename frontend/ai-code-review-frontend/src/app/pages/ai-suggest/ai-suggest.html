@@ -1,0 +1,30 @@
+<section class="min-h-screen bg-gray-900 text-white py-16 px-6">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-3xl font-bold mb-6 text-center">🤖 AI Code Suggestion</h2>
+  
+      <label class="block mb-2 text-gray-300 font-semibold">Code Input</label>
+      <textarea
+        [(ngModel)]="code"
+        rows="10"
+        class="w-full p-4 rounded bg-gray-800 border border-gray-700 resize-none overflow-auto max-h-60"
+        placeholder="Paste your code here..."
+      ></textarea>
+  
+      <button
+        (click)="getSuggestion()"
+        [disabled]="loading"
+        class="mt-6 bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded font-semibold transition w-full"
+      >
+        {{ loading ? '🤔 Thinking...' : '💡 Get Suggestions' }}
+      </button>
+  
+      <div class="mt-10">
+        <h3 class="text-xl font-semibold mb-4">🧠 Suggestion Output</h3>
+        <div *ngIf="formattedResponse" 
+          class="bg-gray-800 border border-gray-700 p-4 rounded overflow-x-auto text-sm leading-relaxed whitespace-pre-wrap"
+          [innerHTML]="formattedResponse"
+        ></div>
+      </div>
+    </div>
+  </section>
+  

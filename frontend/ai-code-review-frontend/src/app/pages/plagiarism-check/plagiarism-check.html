@@ -1,0 +1,34 @@
+<section class="min-h-screen bg-gray-900 text-white py-16 px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <h2 class="text-3xl font-bold mb-6">🔍 Plagiarism Checker</h2>
+  
+      <!-- Input Fields -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <textarea [(ngModel)]="code1"
+          rows="20"
+          class="w-full p-4 rounded bg-gray-800 border border-gray-700 overflow-auto resize-none"
+          placeholder="Enter first code snippet..."></textarea>
+  
+        <textarea [(ngModel)]="code2"
+          rows="10"
+          class="w-full p-4 rounded bg-gray-800 border border-gray-700 overflow-auto resize-none"
+          placeholder="Enter second code snippet..."></textarea>
+      </div>
+  
+      <!-- Button -->
+      <button
+        (click)="checkPlagiarism()"
+        [disabled]="loading"
+        class="mt-8 bg-green-600 hover:bg-green-500 px-6 py-3 rounded font-semibold transition"
+      >
+        {{ loading ? 'Checking...' : 'Check Plagiarism' }}
+      </button>
+  
+      <!-- Result -->
+      <div *ngIf="!loading && result"
+        class="mt-8 text-left text-sm bg-gray-800 p-4 rounded shadow max-w-3xl mx-auto">
+        <pre class="whitespace-pre-wrap text-green-300">{{ result }}</pre>
+      </div>
+    </div>
+  </section>
+  
