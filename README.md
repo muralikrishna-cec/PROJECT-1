@@ -23,13 +23,13 @@ An AI-powered web app that analyzes, reviews, and compares source code using sta
 
 ### 📌 Home + Features Preview
 
-![App Screenshot](resources/home-page.png)
+[App Screenshot](resources/home-page.png)
 
 ---
 
 ## 🏗️ Project Structure
 
-```
+
 
 AI-CODE-REVIEW-ASSISTANT/
 ├── Algorithms/             # Java logic for analysis and similarity
@@ -48,7 +48,6 @@ AI-CODE-REVIEW-ASSISTANT/
 ├── resources/              # 📸 Screenshots, abstracts, docs
 └── README.md
 
-```
 
 ---
 
@@ -182,5 +181,4 @@ python app.py
 
 ```
 
----
 
