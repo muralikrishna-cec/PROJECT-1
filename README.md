@@ -1,6 +1,7 @@
 # 💡 AI Code Review Assistant
 
-An AI-powered web app that analyzes, reviews, and compares source code using static analysis, local AI suggestions (TinyLLaMA), and plagiarism detection.
+ **AI Code Review Assistant** is a Java-focused AI-powered web app that helps analyze and visualize source code. It supports **Java static analysis** using JavaParser, provides **AI-generated code suggestions** for multiple languages (Java, Python, C++, etc.) using a **local TinyLLaMA model**, and detects **plagiarism** using **Levenshtein Distance** and **Token-based similarity**. Unlike cloud-based tools like ChatGPT, this solution runs **fully offline**, ensuring **data privacy**, **zero cost**, and **secure local processing**. The combination of static metrics, smart suggestions, and plagiarism detection makes it ideal for students, developers, and code reviewers.
+
 
 ---
 
