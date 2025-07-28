@@ -1,6 +1,3 @@
-
-
-```md
 # 💡 AI Code Review Assistant
 
 An AI-powered web app that analyzes, reviews, and compares source code using static analysis, local AI suggestions (TinyLLaMA), and plagiarism detection.
