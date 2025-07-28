@@ -1,177 +1,186 @@
 
-# 💡 AI-CODE-REVIEW-ASSISTANT
 
-An AI-powered web application for analyzing, reviewing, and comparing source code using static analysis, AI suggestions, and plagiarism detection.
+```md
+# 💡 AI Code Review Assistant
 
----
-
-## 📌 Project Overview
-
-**AI-CODE-REVIEW-ASSISTANT** is a smart code review platform that allows users to:
-- Submit code (Java and other languages)
-- Receive **AI-generated code improvement suggestions**
-- Perform **static analysis** (Java only)
-- Detect **code plagiarism** using Levenshtein and token-based algorithms
-- View and manage **submission history**
-- Visualize **code quality and structure**
+An AI-powered web app that analyzes, reviews, and compares source code using static analysis, local AI suggestions (TinyLLaMA), and plagiarism detection.
 
 ---
 
-## 🔑 Core Features
+## 📌 Overview
 
-- 🔐 **User Authentication** (Login/Register)
-- 💻 **Java Static Analysis** using JavaParser (Metrics, Class/Method Summary, Mermaid flowcharts)
-- 🌍 **Support for Other Languages** via AI Suggestions
-- 📋 **Plagiarism Detection** (Java):
-  - Levenshtein Distance
-  - Token-based Jaccard Similarity
-- 📊 **Code Quality Charts** (LOC, complexity, quality score)
-- 🧠 **AI Code Suggestions** using local **TinyLLaMA**
-- 🕓 **Submission History** with saved analysis reports
+**AI Code Review Assistant** helps users:
+- 📊 Analyze Java code with metrics and flow diagrams
+- 🧠 Get AI-generated code suggestions for Java, Python, JS, C, C++
+- 🔍 Detect plagiarism using Levenshtein & token-based similarity
+- 📈 View history and code quality insights
+
+---
+
+---
+
+## 🖼️ UI Preview
+
+### 📌 Home + Features Preview
+
+![App Screenshot](resources/home-page.png)
 
 ---
 
 ## 🏗️ Project Structure
 
-
+```
 
 AI-CODE-REVIEW-ASSISTANT/
-├── Algorithms/           # Java logic for static analysis, Levenshtein, token-based
-├── backend/              # Spring Boot backend APIs
-├── frontend/             # Angular frontend with interactive UI
-├── local-llm/             # AI model
-└── README.md             # You're here!
+├── Algorithms/             # Java logic for analysis and similarity
+├── backend/                # Spring Boot APIs (JavaParser, AI, plagiarism)
+│   ├── controller/
+│   ├── service/
+│   ├── model/
+│   └── util/
+├── frontend/               # Angular UI (Tailwind, Mermaid, Charts)
+│   └── ai-code-review-frontend/
+│       ├── src/
+│       │   └── app/
+│       │       ├── components/     # Navbar, Footer
+│       │       └── pages/          # Home, Plagiarism, Suggestions, Analyzer
+├── local-llm/              # TinyLLaMA Flask app
+├── resources/              # 📸 Screenshots, abstracts, docs
+└── README.md
 
+```
 
+---
+
+## 🔑 Core Features
+
+- 🔐 **Login/Register** (JWT-based, coming soon)
+- 💻 **Java Static Analysis**
+  - Metrics (LOC, complexity, score)
+  - Class/Method summary
+  - Mermaid.js flowchart
+- 🤖 **AI Suggestions** (TinyLLaMA)
+  - For Java, Python, JS, C, C++
+  - Uses local LLM via Flask & llama-cpp
+- 📋 **Plagiarism Detection**
+  - Levenshtein Distance
+  - Token Jaccard Similarity
+- 📂 **Code Submission History** (optional DB)
+- 📊 **Code Quality Charts** (Recharts/Chart.js)
 
 ---
 
 ## ⚙️ Tech Stack
 
-### 🔧 Backend:
-- Java + Spring Boot
-- JavaParser (Java AST parser)
-- Levenshtein Distance + Token-based Similarity (Jaccard Index)
-- JWT Authentication
-- In-memory Caching
-- MySQL / MongoDB (optional for storing history)
+**Backend (Spring Boot):**
+- JavaParser (AST)
+- Custom algorithms (Levenshtein, token-based)
+- REST APIs, Caching
+- MySQL / MongoDB (optional)
 
-### 🤖 AI Suggestion (TinyLLaMA):
-- Local LLM setup using [`llama-cpp-python`](https://github.com/abetlen/llama-cpp-python)
-- Flask-based Python backend (optional)
-- Runs locally at: **`http://localhost:5000/chat`**
-- Replaces OpenAI API (No cost!)
+**Frontend (Angular):**
+- Angular + TailwindCSS
+- Standalone components
+- Mermaid.js (flowchart), Recharts
+- Monaco Editor (for code input)
 
-### 🎨 Frontend:
-- Angular (TypeScript)
-- TailwindCSS / Bootstrap
-- Monaco Editor (VS Code-like experience)
-- Recharts / Chart.js for visualizations
-- Mermaid.js for code flow diagrams
+**Local AI (TinyLLaMA):**
+- llama-cpp-python + Flask
+- Open-source, offline LLM
+- Runs at `http://localhost:5000/chat`
 
 ---
 
-## 🧪 Sample API Usage
+## 🧪 API Endpoints
 
-### Static Analysis:
-
+### 🔍 Static Analysis
+```
 
 POST /api/analyze
 Content-Type: text/plain
 Body: <Java code>
 
+```
 
+### 🤖 AI Suggestions (LLM)
+```
 
-### Plagiarism Detection:
+POST /api/ai-suggest
+{
+"language": "java",
+"code": "public class Hello { ... }"
+}
+
+```
+
+### 🔄 Plagiarism Check
 ```
 
 POST /api/plagiarism
 {
-"code1": "<first Java code>",
-"code2": "<second Java code>"
+"code1": "...",
+"code2": "..."
 }
 
-```
-
-### AI Suggestion (TinyLLaMA):
-
-
-POST [http://localhost:5000/chat](http://localhost:5000/chat)
-{
-"prompt": "Review the following Java code and suggest improvements: ..."
-}
-
-
-
----
-
-## 🧠 Setting Up TinyLLaMA Locally
-
-1. Clone or download [TinyLLaMA model](https://huggingface.co/codellama) (Q4 quantized preferred)
-2. Install llama-cpp:
-   ```bash
-   pip install llama-cpp-python flask
 ````
 
-3. Create a simple `app.py` Flask file:
-
-   ```python
-   from llama_cpp import Llama
-   from flask import Flask, request, jsonify
-
-   app = Flask(__name__)
-   llm = Llama(model_path="your_model_path.gguf")
-
-   @app.route("/chat", methods=["POST"])
-   def chat():
-       prompt = request.json.get("prompt", "")
-       output = llm(prompt, max_tokens=256)
-       return jsonify(output)
-
-   app.run(port=5000)
-   ```
-4. Run the server:
-
-   ```bash
-   python app.py
-   ```
-
-✅ Now your backend can send code prompts to TinyLLaMA for suggestions!
-
-
-
-## 📁 Resources
-
-* 🧾 `checklist.pdf` — Final task checklist
-* 🧠 `abstract.pdf` — Detailed project abstract
-* 🧪 `/t_docs/` — Sample test cases
-* 🖼️ `sample_ui.png` — UI mockup (temporary)
-
 ---
 
-## 🔮 Future Enhancements
+## ⚡ Running TinyLLaMA (LLM)
 
-* Export reports as PDF
-* GitHub repo scanning and bulk analysis
-* Admin dashboard for report management
-* WebSocket-based real-time feedback
-* Full AI switch: Replace OpenAI with local TinyLLaMA or Ollama
+1. Download model (`.gguf`) from Hugging Face  
+2. Install Python dependencies:
+```bash
+pip install llama-cpp-python flask
+````
+
+3. Create `app.py`:
+
+```python
+from llama_cpp import Llama
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+llm = Llama(model_path="your_model_path.gguf")
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    prompt = request.json.get("prompt", "")
+    output = llm(prompt, max_tokens=256)
+    return jsonify(output)
+
+app.run(port=5000)
+```
+
+4. Run it:
+
+```bash
+python app.py
+```
+
+
+
+## 🔮 Future Scope
+
+* 📥 Export results as PDF
+* 🔗 GitHub repo scanning
+* 📊 Admin dashboard
+* ⚡ Real-time feedback (WebSocket)
+* 🧠 Replace OpenAI fully with TinyLLaMA/Ollama
 
 ---
 
 ## 📚 License
 
-This project is submitted as part of MCA Minor Project by:
-
-**Murali Krishna (CHN24MCA-2039)**
-For academic/demo purposes only.
+> 🎓 MCA Minor Project Submission
+> **Murali Krishna (CHN24MCA-2039)**
+> *Academic/demo use only*
 
 ---
 
-> 💡 Let code review be smart, AI-driven, and visual!
+> ✨ *Let code review be smart, AI-driven, and visual!*
 
 ```
 
 ---
 
-```
