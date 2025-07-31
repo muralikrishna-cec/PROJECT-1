@@ -15,7 +15,6 @@
 
 ---
 
----
 
 ## 🖼️ UI Preview
 
@@ -164,7 +163,7 @@ python app.py
 * 🔗 GitHub repo scanning
 * 📊 Admin dashboard
 * ⚡ Real-time feedback (WebSocket)
-* 🧠 Replace OpenAI fully with TinyLLaMA/Ollama
+
 
 ---
 
