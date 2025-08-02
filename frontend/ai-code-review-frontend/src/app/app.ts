@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import {  NavbarComponent } from './components/navbar/navbar';
 import { Footer } from './components/footer/footer';
+import { MonacoEditorComponent } from './monaco-editor';
 
 @Component({
   selector: 'app-root',

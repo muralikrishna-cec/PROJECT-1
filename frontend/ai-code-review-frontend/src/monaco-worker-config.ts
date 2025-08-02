@@ -1,11 +1,5 @@
-// Must be at top
-import './monaco-worker-config'; // ✅ Ensure this file exists
-
-import { bootstrapApplication } from '@angular/platform-browser';
-import { appConfig } from './app/app.config';
-import { App } from './app/app';
-
-(window as any).MonacoEnvironment = {
+// Force Monaco to use workers correctly
+self.MonacoEnvironment = {
   getWorkerUrl: function (_moduleId: string, label: string) {
     switch (label) {
       case 'json':
@@ -22,6 +16,3 @@ import { App } from './app/app';
     }
   }
 };
-
-
-bootstrapApplication(App, appConfig).catch((err) => console.error(err));
