@@ -1,60 +1,100 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  Inject,
+  PLATFORM_ID,
+  ViewChild
+} from '@angular/core';
+import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule, HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+import * as monaco from 'monaco-editor';
+import { ChangeDetectorRef } from '@angular/core';
 
 @Component({
+  selector: 'app-plagiarism-checker',
   standalone: true,
-  selector: 'app-plagiarism-check',
-  templateUrl: './plagiarism-check.html',
-  styleUrls: ['./plagiarism-check.css'],
-  imports: [CommonModule, FormsModule, HttpClientModule]
+  imports: [FormsModule, HttpClientModule, CommonModule],
+  templateUrl: './plagiarism-check.html'
 })
-export class PlagiarismCheckComponent {
+export class PlagiarismCheckComponent implements AfterViewInit {
+  @ViewChild('editor1Container', { static: false }) editor1Container!: ElementRef;
+  @ViewChild('editor2Container', { static: false }) editor2Container!: ElementRef;
+
+  monacoEditor1!: monaco.editor.IStandaloneCodeEditor;
+  monacoEditor2!: monaco.editor.IStandaloneCodeEditor;
+
   code1: string = '';
   code2: string = '';
-  result: string = '';
-  loading: boolean = false;
+  selectedLanguage: string = 'python';
+  result: any = '';
+  loading = false;
 
   constructor(
     private http: HttpClient,
-    private cdr: ChangeDetectorRef  // ✅ Add ChangeDetectorRef to force refresh
+    @Inject(PLATFORM_ID) private platformId: Object,
+    private cdr: ChangeDetectorRef 
   ) {}
 
-  checkPlagiarism(): void {
-    if (!this.code1.trim() || !this.code2.trim()) {
-      this.result = '❌ Please enter both code snippets.';
-      return;
+  ngAfterViewInit(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.monacoEditor1 = monaco.editor.create(this.editor1Container.nativeElement, {
+        value: this.code1,
+        language: this.selectedLanguage,
+        theme: 'vs-dark',
+        automaticLayout: true
+      });
+
+      this.monacoEditor2 = monaco.editor.create(this.editor2Container.nativeElement, {
+        value: this.code2,
+        language: this.selectedLanguage,
+        theme: 'vs-dark',
+        automaticLayout: true
+      });
     }
-
-    this.loading = true;
-    this.result = '';
-
-    const payload = {
-      code1: this.code1,
-      code2: this.code2
-    };
-
-    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
-
-    this.http.post('http://localhost:8080/api/plagiarism', payload, {
-      headers: headers,
-      responseType: 'text'
-    }).subscribe({
-      next: (res: string) => {
-        this.result = res;
-        this.loading = false;
-       // console.log('[✅ Response]', res);
-
-        this.cdr.detectChanges(); // ✅ Manually trigger UI update
-        //alert('✅ Result Received!');
-      },
-      error: (err) => {
-        this.result = '❌ Error connecting to backend.';
-        console.error('[Plagiarism Error]', err);
-        this.loading = false;
-        this.cdr.detectChanges(); // Ensure UI reflects error too
-      }
-    });
   }
+
+  onLangChange(event: Event) {
+    const lang = (event.target as HTMLSelectElement).value;
+    this.selectedLanguage = lang;
+    if (this.monacoEditor1 && this.monacoEditor2) {
+      monaco.editor.setModelLanguage(this.monacoEditor1.getModel()!, lang);
+      monaco.editor.setModelLanguage(this.monacoEditor2.getModel()!, lang);
+    }
+  }
+
+  checkPlagiarism() {
+  this.loading = true;
+  this.result = '';
+  this.cdr.detectChanges(); // immediately reflect "Checking..."
+
+  const code1 = this.monacoEditor1.getValue();
+  const code2 = this.monacoEditor2.getValue();
+
+  const payload = {
+    code1,
+    code2,
+    language: this.selectedLanguage
+  };
+
+  this.http.post('http://localhost:8080/api/plagiarism', payload, { responseType: 'text' })
+    .subscribe({
+      next: res => {
+  try {
+    const parsed = JSON.parse(res);
+    this.result = parsed;
+  } catch (e) {
+    this.result = {
+      verdict: '❌ Could not parse server response.',
+      error: res
+    };
+  }
+  this.loading = false;
+  this.cdr.detectChanges();
+}
+
+    });
+}
+
 }
