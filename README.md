@@ -173,9 +173,4 @@ python app.py
 > **Murali Krishna (CHN24MCA-2039)**
 > *Academic/demo use only*
 
----
-
-> ✨ *Let code review be smart, AI-driven, and visual!*
-
-
 
