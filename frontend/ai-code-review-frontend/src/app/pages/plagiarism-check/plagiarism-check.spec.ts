@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { PlagiarismCheck } from './plagiarism-check';
+import { PlagiarismCheckComponent } from './plagiarism-check';
 
 describe('PlagiarismCheck', () => {
-  let component: PlagiarismCheck;
-  let fixture: ComponentFixture<PlagiarismCheck>;
+  let component: PlagiarismCheckComponent;
+  let fixture: ComponentFixture<PlagiarismCheckComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [PlagiarismCheck]
+      imports: [PlagiarismCheckComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(PlagiarismCheck);
+    fixture = TestBed.createComponent(PlagiarismCheckComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

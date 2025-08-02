@@ -3,6 +3,15 @@ package com.codereview.backend.model;
 public class PlagiarismRequest {
     private String code1;
     private String code2;
+    private String language;
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
 
     public String getCode1() {
         return code1;

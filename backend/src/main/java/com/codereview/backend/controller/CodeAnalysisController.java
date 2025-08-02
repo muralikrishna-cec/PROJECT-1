@@ -1,14 +1,11 @@
 package com.codereview.backend.controller;
 
 import com.codereview.backend.model.AISuggestionRequest;
-import com.codereview.backend.service.AISuggestionService;
-import com.codereview.backend.service.CodeAnalysisService;
-import com.codereview.backend.service.MultiLangCodeAnalysisService;
+import com.codereview.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.codereview.backend.model.PlagiarismRequest;
-import com.codereview.backend.service.PlagiarismService;
 
 import java.util.Map;
 
@@ -29,6 +26,9 @@ public class CodeAnalysisController {
 
     @Autowired
     private AISuggestionService aiSuggestionService;
+
+    @Autowired
+    private MultiLangPlagiarismService multiLangPlagiarismService;
 
    /* @PostMapping("/analyze")
     public ResponseEntity<String> analyzeCode(@RequestBody String code) {
@@ -53,16 +53,16 @@ public class CodeAnalysisController {
 
 
     @PostMapping("/plagiarism")
-    public ResponseEntity<String> checkPlagiarism(@RequestBody PlagiarismRequest request) {
+    public ResponseEntity<Map<String, Object>> checkPlagiarism(@RequestBody PlagiarismRequest request) {
+        Map<String, Object> report;
 
-        double levenshteinSim = plagiarismService.checkPlagiarism(request.getCode1(), request.getCode2());
-        double tokenSim = plagiarismService.checkTokenSimilarity(request.getCode1(), request.getCode2());
+        if ("java".equalsIgnoreCase(request.getLanguage())) {
+            report = plagiarismService.getPlagiarismReport(request.getCode1(), request.getCode2());
+        } else {
+            report = multiLangPlagiarismService.checkWithPythonMicroservice(request.getCode1(), request.getCode2(), request.getLanguage());
+        }
 
-        String result = String.format(
-                "📘 Levenshtein Similarity: %.2f%%\n🔠 Token Similarity: %.2f%%", levenshteinSim, tokenSim);
-
-        return ResponseEntity.ok(result);
-
+        return ResponseEntity.ok(report);
     }
 
     @PostMapping("/ai-suggest")

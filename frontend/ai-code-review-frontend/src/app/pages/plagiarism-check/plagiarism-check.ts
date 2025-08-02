@@ -67,7 +67,7 @@ export class PlagiarismCheckComponent implements AfterViewInit {
   checkPlagiarism() {
   this.loading = true;
   this.result = '';
-  this.cdr.detectChanges(); // immediately reflect "Checking..."
+  this.cdr.detectChanges(); // Show "Checking..."
 
   const code1 = this.monacoEditor1.getValue();
   const code2 = this.monacoEditor2.getValue();
@@ -78,23 +78,34 @@ export class PlagiarismCheckComponent implements AfterViewInit {
     language: this.selectedLanguage
   };
 
-  this.http.post('http://localhost:8080/api/plagiarism', payload, { responseType: 'text' })
-    .subscribe({
-      next: res => {
-  try {
-    const parsed = JSON.parse(res);
-    this.result = parsed;
-  } catch (e) {
-    this.result = {
-      verdict: '❌ Could not parse server response.',
-      error: res
-    };
-  }
-  this.loading = false;
-  this.cdr.detectChanges();
+  // ✅ Choose correct backend based on language
+ const apiUrl = 'http://localhost:8080/api/plagiarism';
+
+
+  this.http.post(apiUrl, payload, { responseType: 'text' }).subscribe({
+    next: res => {
+      try {
+        const parsed = JSON.parse(res);
+        this.result = parsed;
+      } catch (e) {
+        this.result = {
+          verdict: '❌ Could not parse server response.',
+          error: res
+        };
+      }
+      this.loading = false;
+      this.cdr.detectChanges();
+    },
+    error: err => {
+      this.result = {
+        verdict: '❌ Error contacting backend.',
+        error: err.message || 'Unknown error'
+      };
+      this.loading = false;
+      this.cdr.detectChanges();
+    }
+  });
 }
 
-    });
-}
 
 }
