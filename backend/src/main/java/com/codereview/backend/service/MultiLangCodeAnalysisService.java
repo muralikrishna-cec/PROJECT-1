@@ -15,7 +15,7 @@ public class MultiLangCodeAnalysisService {
         this.restTemplate = restTemplate;
     }
 
-    public String analyze(String code, String language) {
+    public Map<String, Object> analyze(String code, String language) {
         String pythonServiceUrl = "http://localhost:6000/analyze";
 
         HttpHeaders headers = new HttpHeaders();
@@ -30,10 +30,11 @@ public class MultiLangCodeAnalysisService {
                 pythonServiceUrl, HttpMethod.POST, requestEntity, Map.class);
 
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            return response.getBody().get("report").toString();
+            return response.getBody();  // ✅ Proper JSON object
         } else {
-            return "❌ Error from multi-language analysis service";
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "❌ Error from multi-language analysis service");
+            return error;
         }
     }
 }
-

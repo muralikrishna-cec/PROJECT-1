@@ -27,3 +27,71 @@ textarea {
   border: 1px solid #e0e0e0;
   box-shadow: 0 0 10px rgba(0,0,0,0.05);
 }
+
+
+/* layout */
+.page { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; }
+.controls { display: flex; gap: 12px; align-items: center; }
+.controls select, .controls button { padding: 6px 10px; }
+
+.editor-panel { display: grid; grid-template-columns: 1fr 280px; gap: 12px; min-height: 420px; }
+.editor { height: 420px; border-radius: 8px; overflow: hidden; border: 1px solid #2b2b2b; }
+
+.sidebar { display: flex; flex-direction: column; gap: 12px; }
+.metrics { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fafafa; }
+.metric-item { display: flex; justify-content: space-between; padding: 6px 0; }
+.score svg { width: 100px; height: 100px; }
+.score .bg { fill: none; stroke: #e5e7eb; }
+.score .fg { fill: none; stroke: #2563eb; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .6s ease; }
+.score text { font-size: 16px; fill: #111827; font-weight: 600; }
+
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tabs button { padding: 8px; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; }
+.tabs button.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+.panel { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #fff; }
+.analysis-pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow: auto; }
+
+.viz-controls { display: flex; gap: 8px; margin-bottom: 8px; }
+.viz-controls button { padding: 6px 10px; }
+
+.mermaid-wrap { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 12px; }
+
+/* ---------- Mermaid animations ---------- */
+
+/* continuous flow on edges */
+.mermaid .edgePath path {
+  stroke-dasharray: 6, 6;
+  animation: dashmove 2s linear infinite;
+}
+
+@keyframes dashmove {
+  to { stroke-dashoffset: -12; }
+}
+
+/* subtle pulsing for nodes */
+.mermaid .node rect,
+.mermaid .node polygon,
+.mermaid .node path {
+  stroke: #2563eb;
+  stroke-width: 1.8px;
+  animation: pulse 2.2s infinite alternate;
+}
+
+@keyframes pulse {
+  from { filter: drop-shadow(0 0 0px rgba(37,99,235,0.35)); }
+  to   { filter: drop-shadow(0 0 6px rgba(37,99,235,0.55)); }
+}
+
+/* traversal highlight */
+.mermaid .active {
+  stroke: #f97316 !important;
+  stroke-width: 3px !important;
+  animation: glow 1.4s infinite alternate;
+}
+
+@keyframes glow {
+  from { filter: drop-shadow(0 0 2px rgba(249,115,22,0.6)); }
+  to   { filter: drop-shadow(0 0 8px rgba(249,115,22,0.9)); }
+}

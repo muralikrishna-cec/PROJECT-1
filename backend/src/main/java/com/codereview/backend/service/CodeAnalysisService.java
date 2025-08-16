@@ -7,296 +7,210 @@ import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import org.springframework.stereotype.Service;
 
+import java.util.*;
+
 @Service
 public class CodeAnalysisService {
 
-    public String analyze(String code) {
+    public Map<String, Object> analyze(String code) {
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        List<Map<String, String>> edges = new ArrayList<>();
+        List<String> suggestions = new ArrayList<>();
         StringBuilder report = new StringBuilder();
 
         try {
             JavaParser parser = new JavaParser();
-            ParseResult<CompilationUnit> result = parser.parse(code);
+            ParseResult<CompilationUnit> parseResult = parser.parse(code);
 
-            if (result.isSuccessful() && result.getResult().isPresent()) {
-                CompilationUnit cu = result.getResult().get();
+            if (!parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
+                List<String> errors = new ArrayList<>();
+                for (Problem p : parseResult.getProblems()) {
+                    errors.add(formatParseProblem(p, code));
+                }
+                result.put("error", errors);
+                return result;
+            }
 
-                // Metrics Calculation
-                MetricsCalculator metrics = new MetricsCalculator();
-                cu.accept(metrics, null);
+            CompilationUnit cu = parseResult.getResult().get();
 
-                int loc = metrics.getLoc();
-                int complexity = metrics.getTotalComplexity();
-                int codeQualityScore = Math.max(0, 100 - (complexity * 2));
+            // ===== Metrics =====
+            MetricsCalculator metrics = new MetricsCalculator();
+            cu.accept(metrics, null);
 
-                // Header
-                report.append("\n============================\n");
-                report.append("🧠 Java Static Analysis Report\n");
-                report.append("============================\n\n");
+            int loc = metrics.getLoc();
+            int complexity = metrics.getTotalComplexity();
+            int qualityScore = Math.max(30, 100 - complexity * 2);
 
-                // Metrics
-                report.append("📊 Code Metrics:\n");
-                report.append("🔹 Lines of Code (LOC): ").append(loc).append("\n");
-                report.append("🔹 Cyclomatic Complexity: ").append(complexity).append("\n");
-                report.append("🔹 Code Quality Score: ").append(codeQualityScore).append("%\n");
+            result.put("metrics", Map.of(
+                    "loc", loc,
+                    "cyclomatic_complexity", complexity,
+                    "quality_score", qualityScore
+            ));
 
-                // Class & Method Summary
-                report.append("\n📦 Class & Method Summary:\n");
-                cu.accept(new ClassVisitor(report), null);
+            // Suggestions from metrics
+            if (complexity > 10) suggestions.add("⚠️ High cyclomatic complexity. Consider simplifying logic.");
+            if (loc > 100) suggestions.add("⚠️ File is long. Consider splitting into smaller modules.");
 
-                // Loop and Conditions
-                report.append("\n🔁 Loop & Condition Summary:\n");
-                cu.accept(new LoopConditionVisitor(report), null);
+            // ===== Nodes & Edges =====
+            int[] counter = {1};
+            for (TypeDeclaration<?> type : cu.getTypes()) {
+                if (type instanceof ClassOrInterfaceDeclaration) {
+                    processClass((ClassOrInterfaceDeclaration) type, null, nodes, edges, suggestions, counter);
+                }
+            }
 
-                // Suggestions
-                report.append("\n💡 Code Quality Suggestions:\n");
-                cu.accept(new SuggestionVisitor(report), null);
+            if (suggestions.isEmpty()) suggestions.add("✅ Looks good!");
 
-                // Mermaid Flow
-                report.append("\n🔍 Code Flow Visualization:\n");
-                visualizeStructure(cu, report);
+            // ===== Build textual report =====
+            report.append("============================\n")
+                    .append("🧠 Java Static Analysis Report\n")
+                    .append("============================\n\n")
+                    .append("📊 Code Metrics:\n")
+                    .append("🔹 Lines of Code (LOC): ").append(loc).append("\n")
+                    .append("🔹 Cyclomatic Complexity: ").append(complexity).append("\n")
+                    .append("🔹 Code Quality Score: ").append(qualityScore).append("%\n\n")
+                    .append("💡 Code Quality Suggestions:\n");
+            for (String s : suggestions) report.append(s).append("\n");
 
-                return report.toString();
-            } else {
-                String[] codeLines = code.split("\\r?\\n");
+            // ===== Return everything =====
+            result.put("nodes", nodes);
+            result.put("edges", edges);
+            result.put("suggestions", suggestions);
+            result.put("report", report.toString());
 
-                for (Problem problem : result.getProblems()) {
-                    int line = problem.getLocation()
-                            .flatMap(loc -> loc.getBegin().getRange().map(r -> r.begin.line))
-                            .orElse(-1);
+        } catch (Exception e) {
+            result.put("error", List.of("Exception: " + e.getMessage()));
+        }
 
-                    String message = problem.getMessage();
+        return result;
+    }
 
-                    if (message.contains("expected \";\"")) {
-                        message = "Missing semicolon? " + message;
-                    } else if (message.contains("expected \"}\"")) {
-                        message = "You may have missed a closing curly brace `}`.";
-                    } else if (message.contains("expected \")\"")) {
-                        message = "Missing closing bracket `)`?";
-                    } else if (message.contains("Found \"else\"")) {
-                        message = "Found `else` but maybe missing closing `}` for previous block.";
-                    }
+    // ===== Process Class =====
+    private void processClass(ClassOrInterfaceDeclaration cls, String parentId,
+                              List<Map<String, Object>> nodes, List<Map<String, String>> edges,
+                              List<String> suggestions, int[] counter) {
 
-                    report.append("🔸 Line ").append(line).append(": ").append(message).append("\n");
+        String classId = "Class_" + cls.getNameAsString();
+        nodes.add(Map.of(
+                "id", classId,
+                "type", "class",
+                "label", "📦 Class: " + cls.getNameAsString(),
+                "line", cls.getBegin().map(p -> p.line).orElse(-1)
+        ));
+        if (parentId != null) edges.add(Map.of("from", parentId, "to", classId));
 
-                    if (line > 0 && line <= codeLines.length) {
-                        report.append("    ➤ Code: ").append(codeLines[line - 1].trim()).append("\n\n");
+        for (BodyDeclaration<?> member : cls.getMembers()) {
+            if (member instanceof MethodDeclaration) {
+                MethodDeclaration method = (MethodDeclaration) member;
+                String methodId = "Method_" + method.getNameAsString();
+                nodes.add(Map.of(
+                        "id", methodId,
+                        "type", "method",
+                        "label", "🔧 Method: " + method.getNameAsString(),
+                        "params", method.getParameters().size(),
+                        "returnType", method.getType().toString(),
+                        "line", method.getBegin().map(p -> p.line).orElse(-1)
+                ));
+                edges.add(Map.of("from", classId, "to", methodId));
+
+                // Suggestions: JavaDoc & parameter count
+                if (!method.getJavadoc().isPresent())
+                    suggestions.add("⚠️ Add JavaDoc to method: " + method.getNameAsString());
+                if (method.getParameters().size() > 3)
+                    suggestions.add("⚠️ Method " + method.getNameAsString() + " has too many parameters.");
+
+                if (method.getBody().isPresent()) {
+                    for (Statement stmt : method.getBody().get().getStatements()) {
+                        printD3Flow(stmt, methodId, nodes, edges, counter);
                     }
                 }
 
-
-                return report.toString();
+            } else if (member instanceof ClassOrInterfaceDeclaration) {
+                processClass((ClassOrInterfaceDeclaration) member, classId, nodes, edges, suggestions, counter);
             }
-        } catch (Exception e) {
-            return "⚠️ Error analyzing code: " + e.getMessage();
         }
     }
 
-    // ========== Visitors ==========
+    // ===== D3.js Flow =====
+    private void printD3Flow(Statement stmt, String parentId,
+                             List<Map<String, Object>> nodes, List<Map<String, String>> edges, int[] counter) {
 
-    private static class ClassVisitor extends VoidVisitorAdapter<Void> {
-        StringBuilder report;
-        ClassVisitor(StringBuilder report) { this.report = report; }
+        String nodeId = parentId + "_N" + counter[0]++;
+        String label;
+        int line = stmt.getBegin().map(p -> p.line).orElse(-1);
 
-        @Override public void visit(ClassOrInterfaceDeclaration cd, Void arg) {
-            report.append("📦 Class: ").append(cd.getName()).append("\n");
-            super.visit(cd, arg);
-        }
+        if (stmt instanceof ForStmt) label = "🔁 For Loop";
+        else if (stmt instanceof WhileStmt) label = "🔁 While Loop";
+        else if (stmt instanceof DoStmt) label = "🔁 Do-While Loop";
+        else if (stmt instanceof ForEachStmt) label = "🔁 Enhanced For Loop";
+        else if (stmt instanceof IfStmt) label = "🔀 If Condition";
+        else if (stmt instanceof ExpressionStmt && stmt.toString().contains("System.out"))
+            label = "🖨️ " + stmt.toString().replace("System.out.println", "").trim();
+        else label = "🔸 " + stmt.toString().trim();
 
-        @Override public void visit(MethodDeclaration md, Void arg) {
-            report.append("  🔧 Method: ").append(md.getName()).append("\n");
-            report.append("    📥 Params: ").append(md.getParameters().size())
-                    .append(", 🔁 Returns: ").append(md.getType()).append("\n");
-            super.visit(md, arg);
-        }
+        nodes.add(Map.of(
+                "id", nodeId,
+                "type", "stmt",
+                "label", label,
+                "line", line
+        ));
+        edges.add(Map.of("from", parentId, "to", nodeId));
+
+        if (stmt instanceof BlockStmt) {
+            for (Statement nested : ((BlockStmt) stmt).getStatements())
+                printD3Flow(nested, nodeId, nodes, edges, counter);
+        } else if (stmt instanceof IfStmt) {
+            printD3Flow(((IfStmt) stmt).getThenStmt(), nodeId, nodes, edges, counter);
+            ((IfStmt) stmt).getElseStmt().ifPresent(elseStmt -> printD3Flow(elseStmt, nodeId, nodes, edges, counter));
+        } else if (stmt instanceof ForStmt) printD3Flow(((ForStmt) stmt).getBody(), nodeId, nodes, edges, counter);
+        else if (stmt instanceof WhileStmt) printD3Flow(((WhileStmt) stmt).getBody(), nodeId, nodes, edges, counter);
+        else if (stmt instanceof DoStmt) printD3Flow(((DoStmt) stmt).getBody(), nodeId, nodes, edges, counter);
     }
 
-    private static class LoopConditionVisitor extends VoidVisitorAdapter<Void> {
-        StringBuilder report;
-        LoopConditionVisitor(StringBuilder report) { this.report = report; }
-
-        @Override public void visit(ForStmt stmt, Void arg) {
-            report.append("🔁 For loop at line: ").append(stmt.getBegin().get().line).append("\n");
-            super.visit(stmt, arg);
-        }
-
-        @Override public void visit(WhileStmt stmt, Void arg) {
-            report.append("🔁 While loop at line: ").append(stmt.getBegin().get().line).append("\n");
-            super.visit(stmt, arg);
-        }
-
-        @Override public void visit(DoStmt stmt, Void arg) {
-            report.append("🔁 Do-While loop at line: ").append(stmt.getBegin().get().line).append("\n");
-            super.visit(stmt, arg);
-        }
-
-        @Override public void visit(ForEachStmt stmt, Void arg) {
-            report.append("🔁 Enhanced For loop at line: ").append(stmt.getBegin().get().line).append("\n");
-            super.visit(stmt, arg);
-        }
-
-        @Override public void visit(IfStmt stmt, Void arg) {
-            report.append("🔀 If statement at line: ").append(stmt.getBegin().get().line).append("\n");
-            super.visit(stmt, arg);
-        }
-    }
-
-    private static class SuggestionVisitor extends VoidVisitorAdapter<Void> {
-        StringBuilder report;
-        SuggestionVisitor(StringBuilder report) { this.report = report; }
-
-        @Override public void visit(MethodDeclaration md, Void arg) {
-            if (!md.getJavadoc().isPresent()) {
-                report.append("⚠️  Add JavaDoc to method: ").append(md.getName()).append("\n");
-            }
-            if (md.getParameters().size() > 3) {
-                report.append("⚠️  Method ").append(md.getName()).append(" has too many parameters.\n");
-            }
-            super.visit(md, arg);
-        }
-
-        @Override public void visit(ClassOrInterfaceDeclaration cd, Void arg) {
-            if (!cd.getJavadoc().isPresent()) {
-                report.append("⚠️  Add JavaDoc to class: ").append(cd.getName()).append("\n");
-            }
-            super.visit(cd, arg);
-        }
-    }
-
+    // ===== Metrics Calculator =====
     private static class MetricsCalculator extends VoidVisitorAdapter<Void> {
         int loc = 0;
         int totalComplexity = 0;
 
         @Override public void visit(MethodDeclaration md, Void arg) {
             super.visit(md, arg);
-
             if (md.getBody().isPresent()) {
                 BlockStmt body = md.getBody().get();
-                loc += countLines(body);
-
-                for (Statement stmt : body.getStatements()) {
-                    totalComplexity += countDecisionPoints(stmt);
-                }
-
-                totalComplexity += 1;
+                loc += (int) body.toString().lines()
+                        .map(String::trim)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("//"))
+                        .count();
+                totalComplexity += countDecisionPoints(body) + 1;
             }
         }
 
-        private int countLines(Node node) {
-            return (int) node.toString()
-                    .lines()
-                    .map(String::trim)
-                    .filter(line -> !line.isEmpty() && !line.startsWith("//"))
-                    .count();
-        }
-
-        private int countDecisionPoints(Statement stmt) {
-            int[] count = new int[1];
-
-            if (stmt instanceof IfStmt || stmt instanceof ForStmt || stmt instanceof WhileStmt ||
-                    stmt instanceof DoStmt || stmt instanceof ForEachStmt) count[0]++;
-
-            if (stmt instanceof BlockStmt) {
-                for (Statement s : ((BlockStmt) stmt).getStatements()) {
-                    count[0] += countDecisionPoints(s);
-                }
-            } else if (stmt instanceof IfStmt) {
-                count[0] += countDecisionPoints(((IfStmt) stmt).getThenStmt());
-                ((IfStmt) stmt).getElseStmt().ifPresent(elseStmt -> count[0] += countDecisionPoints(elseStmt));
-            } else if (stmt instanceof ForStmt) {
-                count[0] += countDecisionPoints(((ForStmt) stmt).getBody());
-            } else if (stmt instanceof WhileStmt) {
-                count[0] += countDecisionPoints(((WhileStmt) stmt).getBody());
-            } else if (stmt instanceof DoStmt) {
-                count[0] += countDecisionPoints(((DoStmt) stmt).getBody());
+        private int countDecisionPoints(Node node) {
+            int count = 0;
+            for (Node child : node.getChildNodes()) {
+                if (child instanceof IfStmt || child instanceof ForStmt || child instanceof WhileStmt
+                        || child instanceof DoStmt || child instanceof ForEachStmt) count++;
+                count += countDecisionPoints(child);
             }
-
-            return count[0];
+            return count;
         }
-
 
         public int getLoc() { return loc; }
         public int getTotalComplexity() { return totalComplexity; }
     }
 
-    // === Mermaid Flow Chart ===
+    // ===== Parse Problem Formatter =====
+    private String formatParseProblem(Problem problem, String code) {
+        String message = problem.getMessage();
+        int line = problem.getLocation()
+                .flatMap(loc -> loc.getBegin().getRange().map(r -> r.begin.line))
+                .orElse(-1);
 
-    private static void visualizeStructure(CompilationUnit cu, StringBuilder report) {
-        report.append("graph TD\n");
-        for (TypeDeclaration<?> type : cu.getTypes()) {
-            if (type instanceof ClassOrInterfaceDeclaration) {
-                processClass((ClassOrInterfaceDeclaration) type, null, report);
-            }
-        }
+        if (message.contains("expected \";\"")) message = "Missing semicolon? " + message;
+        else if (message.contains("expected \"}\"")) message = "You may have missed a closing curly brace `}`.";
+        else if (message.contains("expected \")\"")) message = "Missing closing bracket `)`?";
+        else if (message.contains("Found \"else\"")) message = "Found `else` but maybe missing closing `}` for previous block.";
+
+        return "🔸 Line " + line + ": " + message;
     }
-
-    private static void processClass(ClassOrInterfaceDeclaration cls, String parentId, StringBuilder report) {
-        String classId = "Class_" + cls.getNameAsString();
-        report.append("  ").append(classId).append("[📦 Class: ").append(cls.getName()).append("]\n");
-
-        if (parentId != null) {
-            report.append("  ").append(parentId).append(" --> ").append(classId).append("\n");
-        }
-
-        for (BodyDeclaration<?> member : cls.getMembers()) {
-            if (member instanceof MethodDeclaration) {
-                MethodDeclaration method = (MethodDeclaration) member;
-                String methodId = "Method_" + method.getNameAsString().replaceAll("[^a-zA-Z0-9_]", "");
-                report.append("  ").append(classId).append(" --> ").append(methodId)
-                        .append("[🔧 Method: ").append(method.getName()).append("]\n");
-
-                if (method.getBody().isPresent()) {
-                    int[] counter = {1};
-                    for (Statement stmt : method.getBody().get().getStatements()) {
-                        printMermaidFlow(stmt, methodId, report, counter);
-                    }
-                }
-            } else if (member instanceof ClassOrInterfaceDeclaration) {
-                processClass((ClassOrInterfaceDeclaration) member, classId, report);
-            }
-        }
-    }
-
-    private static void printMermaidFlow(Statement stmt, String fromId, StringBuilder report, int[] counter) {
-        String nodeId = fromId + "_N" + counter[0]++;
-
-        String label = "";
-        if (stmt instanceof ForStmt) label = "🔁 For Loop";
-        else if (stmt instanceof WhileStmt) label = "🔁 While Loop";
-        else if (stmt instanceof DoStmt) label = "🔁 Do-While Loop";
-        else if (stmt instanceof ForEachStmt) label = "🔁 Enhanced For Loop";
-        else if (stmt instanceof IfStmt) label = "🔀 If Condition";
-        else if (stmt instanceof ExpressionStmt && stmt.toString().contains("System.out")) {
-            label = "🖨️ " + stmt.toString().replace("System.out.println", "").trim();
-        } else {
-            label = "🔸 " + stmt.toString().trim();
-        }
-
-        label = label
-                .replace("\"", "'")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("&", "&amp;")
-                .replace("\n", " ")
-                .replace("\r", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-
-        report.append("  ").append(fromId).append(" --> ").append(nodeId).append("[\"").append(label).append("\"]\n");
-
-        if (stmt instanceof BlockStmt) {
-            for (Statement nested : ((BlockStmt) stmt).getStatements()) {
-                printMermaidFlow(nested, nodeId, report, counter);
-            }
-        } else if (stmt instanceof IfStmt) {
-            printMermaidFlow(((IfStmt) stmt).getThenStmt(), nodeId, report, counter);
-            ((IfStmt) stmt).getElseStmt().ifPresent(elseStmt -> printMermaidFlow(elseStmt, nodeId, report, counter));
-        } else if (stmt instanceof ForStmt) {
-            printMermaidFlow(((ForStmt) stmt).getBody(), nodeId, report, counter);
-        } else if (stmt instanceof WhileStmt) {
-            printMermaidFlow(((WhileStmt) stmt).getBody(), nodeId, report, counter);
-        } else if (stmt instanceof DoStmt) {
-            printMermaidFlow(((DoStmt) stmt).getBody(), nodeId, report, counter);
-        }
-    }
-
 }

@@ -1,77 +1,61 @@
 <div class="min-h-screen bg-gray-900 text-gray-100 px-6 py-16">
   <div class="max-w-7xl mx-auto space-y-12">
 
-    <!-- 🧪 Heading -->
+    <!-- Header -->
     <div class="text-center space-y-4">
-      <h2 class="text-4xl md:text-5xl font-extrabold text-green-400">
-        🧪 AI Code Analyzer
-      </h2>
+      <h2 class="text-4xl md:text-5xl font-extrabold text-green-400">🧪 AI Code Analyzer</h2>
       <p class="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
-        Paste your code below to get real-time metrics, AI suggestions, and interactive flowcharts.
+        Paste your code, get metrics, a static report, animated flowchart, and AI suggestions.
       </p>
     </div>
 
-    <!-- 📝 Editor & Controls -->
+    <!-- Editor & Controls -->
     <div class="bg-gray-800 p-6 rounded-xl shadow-lg space-y-4">
-
-      <!-- 🔤 Language Selector -->
       <div class="flex gap-4 mb-2">
         <label for="lang" class="text-gray-300 font-semibold">Language:</label>
         <select id="lang"
                 [(ngModel)]="selectedLang"
                 (change)="onLangChange($event)"
                 class="bg-gray-700 border border-gray-600 p-2 rounded text-white">
-          <option value="java">Java</option>
           <option value="python">Python</option>
+          <option value="java">Java</option>
           <option value="javascript">JavaScript</option>
           <option value="c">C</option>
           <option value="cpp">C++</option>
         </select>
       </div>
 
-      <!-- 🎯 Monaco Editor -->
-      <div #editorContainer class="h-[350px] border border-gray-700 rounded overflow-hidden"></div>
+      <div #editorContainer class="h-[350px] border border-gray-700 rounded overflow-hidden bg-gray-900"></div>
 
-      <!-- 🚀 Action Buttons -->
       <div class="flex flex-col sm:flex-row justify-between gap-4 pt-2">
-        <button (click)="submitCode()" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-semibold transition">
+        <button (click)="submitCode()"
+                class="w-full sm:w-auto bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-semibold transition">
           🚀 Submit for Analysis
-        </button>
-        <button (click)="fetchAISuggestions()" class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 px-6 py-2 rounded-lg font-semibold transition">
-          🤖 Get AI Suggestions
         </button>
       </div>
     </div>
 
-    <!-- 📊 Metrics Display -->
+    <!-- Metrics -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+      <div class="bg-gray-800 p-6 rounded-xl shadow text-center">
         <h4 class="text-lg font-semibold text-green-400 mb-2">📏 LOC</h4>
         <p class="text-3xl font-bold text-white">{{ metrics.loc }}</p>
       </div>
-      <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+      <div class="bg-gray-800 p-6 rounded-xl shadow text-center">
         <h4 class="text-lg font-semibold text-green-400 mb-2">🧩 Complexity</h4>
         <p class="text-3xl font-bold text-white">{{ metrics.complexity }}</p>
       </div>
-      <div class="bg-gray-800 p-6 rounded-lg shadow text-center">
+      <div class="bg-gray-800 p-6 rounded-xl shadow text-center">
         <h4 class="text-lg font-semibold text-green-400 mb-4">🌟 Quality Score</h4>
         <div class="relative w-24 h-24 mx-auto">
           <svg class="w-full h-full transform -rotate-90">
-            <circle class="text-gray-600"
-                    stroke-width="10"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="45"
-                    cx="50%" cy="50%" />
+            <circle class="text-gray-600" stroke-width="10" stroke="currentColor" fill="transparent" r="45" cx="50%" cy="50%" />
             <circle class="text-green-400"
                     stroke-width="10"
                     [attr.stroke-dasharray]="getCircumference(45)"
                     [attr.stroke-dashoffset]="getStrokeOffset(metrics.score)"
                     stroke-linecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="45"
-                    cx="50%" cy="50%" />
+                    stroke="currentColor" fill="transparent" r="45" cx="50%" cy="50%" />
           </svg>
           <div class="absolute inset-0 flex items-center justify-center text-xl font-bold text-green-300">
             {{ metrics.score }}%
@@ -80,84 +64,104 @@
       </div>
     </div>
 
-    <!-- 📘 Report, 📈 Visualization, 🤖 AI Suggestions Tabs -->
+    <!-- Tabs -->
     <div>
-      <!-- 🧭 Tab Switch -->
       <div class="flex gap-4 mb-4">
-        <button 
-          (click)="setActiveTab('analysis')" 
-          [ngClass]="{ 'bg-green-600': activeTab === 'analysis' }"
-          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+        <button (click)="setActiveTab('analysis')"
+                [ngClass]="{ 'bg-green-600': activeTab === 'analysis' }"
+                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           📘 Static Analysis
         </button>
-
-        <button 
-          (click)="setActiveTab('visualization')" 
-          [ngClass]="{ 'bg-green-600': activeTab === 'visualization' }"
-          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+        <button (click)="setActiveTab('visualization')"
+                [ngClass]="{ 'bg-green-600': activeTab === 'visualization' }"
+                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           📈 Visualization
         </button>
-
-        <button 
-          (click)="setActiveTab('suggestions')" 
-          [ngClass]="{ 'bg-green-600': activeTab === 'suggestions' }"
-          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+        <button (click)="setActiveTab('suggestions')"
+                [ngClass]="{ 'bg-green-600': activeTab === 'suggestions' }"
+                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           🤖 AI Suggestions
         </button>
       </div>
 
-      <!-- 📘 Static Analysis Report -->
-      <div *ngIf="activeTab === 'analysis'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-        <h3 class="text-2xl font-bold text-green-400 mb-6">📘 Static Analysis Report</h3>
-        <ng-container *ngFor="let section of formattedOutput">
-          <div *ngIf="section.body && section.body.trim().length > 10" class="mb-6 border-l-4 border-green-400 pl-4">
-            <h4 class="text-base font-semibold text-green-300 mb-2">🔹 {{ section.title }}</h4>
-            <div class="bg-gray-900 text-gray-100 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto">
-              {{ section.body }}
-            </div>
-          </div>
-        </ng-container>
-        <button (click)="copyReport()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
-          📋 Copy Full Report
-        </button>
-      </div>
+<!-- Static Analysis Report -->
+<div *ngIf="activeTab === 'analysis'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+  <h3 class="text-2xl font-bold text-green-400 mb-6">📘 Static Analysis Report</h3>
 
-      <!-- 📈 Mermaid Visualization -->
+  <ng-container *ngFor="let section of formattedOutput">
+    <div *ngIf="section.content && section.content.trim().length > 0" class="mb-6 border-l-4 border-green-400 pl-4">
+      <h4 class="text-base font-semibold text-green-300 mb-2">🔹 {{ section.title }}</h4>
+      
+      <!-- Render report as HTML with preserved formatting -->
+      <div 
+        class="bg-gray-900 text-gray-100 p-4 rounded text-sm font-mono overflow-x-auto whitespace-pre-wrap"
+        [innerHTML]="section.content">
+      </div>
+    </div>
+  </ng-container>
+
+  <button (click)="copyReport()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
+    📋 Copy Full Report
+  </button>
+</div>
+
+
+
+      <!-- Visualization -->
       <div *ngIf="activeTab === 'visualization'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-        <h3 class="text-2xl font-bold text-green-400 mb-6">📈 Code Flow Visualization</h3>
-        <div class="bg-gray-900 p-4 rounded overflow-x-auto text-gray-100 text-sm min-h-[200px]">
-          <div id="mermaid-container" class="mermaid text-white"></div>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-300">Speed (ms):</label>
+            <input type="number" [(ngModel)]="speedMs" class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
+            <button (click)="playD3()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
+            <button (click)="pauseD3()" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
+            <button (click)="resetD3()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
+          </div>
         </div>
+        <div class="bg-gray-900 p-4 rounded overflow-auto text-gray-100 text-sm min-h-[320px]">
+          <div id="graph-container" class="w-full h-full"></div>
+        </div>
+        <p class="text-gray-400 text-xs mt-3">
+          Tip: The animator highlights nodes first, then edges, following a DFS from the first node.
+        </p>
       </div>
 
-      <!-- 🤖 AI Suggestions -->
-     <!-- 🤖 AI Suggestions -->
-<div *ngIf="activeTab === 'suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-  <h3 class="text-2xl font-bold text-green-400 mb-6">🤖 AI Suggestions</h3>
-
-  <div *ngIf="parsedSuggestions.length; else noSuggestions">
-    <div *ngFor="let section of parsedSuggestions" class="mb-6">
-      <h4 class="text-lg font-semibold text-purple-300 mb-2">
-        <span *ngIf="section.title.toLowerCase().includes('error')">❌</span>
-        <span *ngIf="section.title.toLowerCase().includes('bad')">⚠️</span>
-        <span *ngIf="section.title.toLowerCase().includes('suggestion')">💡</span>
-        {{ section.title }}
-      </h4>
-      <ul class="list-disc pl-6 space-y-1 text-gray-100 text-sm">
-        <li *ngFor="let item of section.items">{{ item }}</li>
-      </ul>
-    </div>
-  </div>
-
-  <ng-template #noSuggestions>
-    <div class="text-gray-400 italic">
-      🤖 No suggestions yet. Click "Get AI Suggestions".
-    </div>
-  </ng-template>
-        <button *ngIf="aiSuggestionText" (click)="copySuggestion()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
-          📋 Copy AI Suggestion
-        </button>
+      <!-- AI Suggestions -->
+      <div *ngIf="activeTab === 'suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-2xl font-bold text-green-400">🤖 AI Suggestions</h3>
+          <button (click)="fetchAISuggestions()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm">
+            💡 Get Suggestions
+          </button>
+        </div>
+        <div *ngIf="aiSuggestions && aiSuggestions.length > 0" class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto text-gray-100">
+          <ng-container *ngFor="let sug of aiSuggestions">
+            <p>✅ {{ sug }}</p>
+          </ng-container>
+        </div>
+        <div *ngIf="!aiSuggestions || aiSuggestions.length === 0" class="text-gray-400 text-sm">
+          Click the button above to fetch AI suggestions.
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Animation styles -->
+<style>
+  .glow-node > rect, .glow-node > polygon, .glow-node > path {
+    stroke: #22c55e !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 6px rgba(34,197,94,.9));
+  }
+  .glow-edge {
+    stroke: #93c5fd !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 6px rgba(147,197,253,.9));
+  }
+  .glow-label {
+    fill: #93c5fd !important;
+    font-weight: 700;
+  }
+</style>

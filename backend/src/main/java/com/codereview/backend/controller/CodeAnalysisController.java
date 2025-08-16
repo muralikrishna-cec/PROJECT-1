@@ -1,14 +1,13 @@
 package com.codereview.backend.controller;
 
 import com.codereview.backend.model.AISuggestionRequest;
+import com.codereview.backend.model.PlagiarismRequest;
 import com.codereview.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.codereview.backend.model.PlagiarismRequest;
 
 import java.util.Map;
-
 
 @CrossOrigin(origins = "http://localhost:4200")
 @RestController
@@ -30,19 +29,15 @@ public class CodeAnalysisController {
     @Autowired
     private MultiLangPlagiarismService multiLangPlagiarismService;
 
-   /* @PostMapping("/analyze")
-    public ResponseEntity<String> analyzeCode(@RequestBody String code) {
-        String result = codeAnalysisService.analyze(code);
-        return ResponseEntity.ok(result);
-    }*/
-
     @PostMapping("/analyze")
-    public ResponseEntity<String> analyzeCode(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, Object>> analyzeCode(@RequestBody Map<String, String> request) {
         String code = request.get("code");
         String language = request.get("language");
 
-        String result;
+        Map<String, Object> result;
+
         if ("java".equalsIgnoreCase(language)) {
+            // Java analyzer already returns Map<String, Object>
             result = codeAnalysisService.analyze(code);
         } else {
             result = multiLangService.analyze(code, language);
@@ -52,6 +47,8 @@ public class CodeAnalysisController {
     }
 
 
+
+
     @PostMapping("/plagiarism")
     public ResponseEntity<Map<String, Object>> checkPlagiarism(@RequestBody PlagiarismRequest request) {
         Map<String, Object> report;
@@ -59,7 +56,9 @@ public class CodeAnalysisController {
         if ("java".equalsIgnoreCase(request.getLanguage())) {
             report = plagiarismService.getPlagiarismReport(request.getCode1(), request.getCode2());
         } else {
-            report = multiLangPlagiarismService.checkWithPythonMicroservice(request.getCode1(), request.getCode2(), request.getLanguage());
+            report = multiLangPlagiarismService.checkWithPythonMicroservice(
+                    request.getCode1(), request.getCode2(), request.getLanguage()
+            );
         }
 
         return ResponseEntity.ok(report);

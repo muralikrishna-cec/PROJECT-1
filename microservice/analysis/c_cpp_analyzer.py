@@ -1,26 +1,22 @@
-from flask import Flask, request, jsonify
 import ast
 import os
 import tempfile
-from pyjsparser import PyJsParser
 from clang import cindex
+import itertools
 
-# Point to your libclang shared object
+# Set your libclang path
 cindex.Config.set_library_file("/usr/lib/x86_64-linux-gnu/libclang-14.so.1")
 
-# ---------------- C/C++ ----------------
+def analyze_c_cpp(code: str, lang: str = "c"):
+    nodes, edges = [], []
+    node_counter = itertools.count(1)
 
-def analyze_c_cpp_with_clang(code, lang):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".c" if lang == "c" else ".cpp") as f:
-        f.write(code.encode())
-        file_path = f.name
+    def add_node(label, ntype="statement"):
+        node_id = f"n{next(node_counter)}"
+        nodes.append({"id": node_id, "type": ntype, "label": label})
+        return node_id
 
-    index = cindex.Index.create()
-    tu = index.parse(file_path)
-
-    flow_lines = ["graph TD"]
-    node_counter = 1
-
+    # Sanitize labels for D3
     def sanitize(text):
         return (
             text.replace('"', '')
@@ -33,55 +29,57 @@ def analyze_c_cpp_with_clang(code, lang):
                 .strip()
         )
 
-    def walk(node, parent_id=None, func_prefix=""):
-        nonlocal node_counter
+    # Temporary file for Clang
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".c" if lang == "c" else ".cpp") as f:
+        f.write(code.encode())
+        file_path = f.name
 
+    index = cindex.Index.create()
+    tu = index.parse(file_path)
+
+    def walk(node, parent_id=None, func_prefix=""):
         if node.location and node.location.file and not str(node.location.file).startswith("/tmp"):
             return
 
         kind = node.kind.name
         label = ""
+        ntype = "other"
 
-        if kind == "TRANSLATION_UNIT":
-            label = f"📦 File: {os.path.basename(file_path)}"
-            func_prefix = "TU"
-        elif kind == "FUNCTION_DECL":
-            label = f"🔧 Method: {node.spelling}"
+        if kind == "FUNCTION_DECL":
+            label = f"Function: {node.spelling}"
+            ntype = "function"
             func_prefix = f"Method_{node.spelling}"
         elif kind == "FOR_STMT":
-            label = "🔁 For Loop"
+            label = "For Loop"
+            ntype = "for"
         elif kind == "WHILE_STMT":
-            label = "🔁 While Loop"
+            label = "While Loop"
+            ntype = "while"
         elif kind == "IF_STMT":
-            label = "🔀 If Statement"
+            label = "If Statement"
+            ntype = "decision"
         elif kind == "RETURN_STMT":
-            label = "🔚 Return"
+            label = "Return"
+            ntype = "return"
         elif kind == "CALL_EXPR":
-            label = f"🖨️ Call: {node.spelling}"
+            label = f"Call: {node.spelling}"
+            ntype = "call"
+        elif kind == "VAR_DECL":
+            label = f"Var: {node.spelling}"
+            ntype = "assign"
         elif kind == "BINARY_OPERATOR":
             tokens = " ".join([t.spelling for t in node.get_tokens()])
-            label = f"🔸 {tokens}"
-        elif kind == "VAR_DECL":
-            label = f"🔸 var {node.spelling}"
-        elif kind == "DECL_STMT":
-            label = "🔸 Declaration"
-        elif kind == "COMPOUND_STMT":
-            label = "🧱 Compound Block"
-        elif kind == "INTEGER_LITERAL":
-            tokens = list(node.get_tokens())
-            label = f"{tokens[0].spelling}" if tokens else "int"
-        elif kind == "DECL_REF_EXPR":
-            return  # Skip to reduce clutter
+            label = f"{tokens}"
+            ntype = "expr"
         else:
-            return  # Skip unrecognized nodes
+            return  # skip unrecognized nodes
 
         safe_label = sanitize(label)
-        current_id = f"{func_prefix}_N{node_counter}"
-        node_counter += 1
+        current_id = f"{func_prefix}_N{next(node_counter)}" if func_prefix else f"N{next(node_counter)}"
 
-        flow_lines.append(f'{current_id}["{safe_label}"]')
+        nodes.append({"id": current_id, "type": ntype, "label": safe_label})
         if parent_id:
-            flow_lines.append(f"{parent_id} --> {current_id}")
+            edges.append({"from": parent_id, "to": current_id})
 
         for child in node.get_children():
             walk(child, current_id, func_prefix)
@@ -89,28 +87,39 @@ def analyze_c_cpp_with_clang(code, lang):
     walk(tu.cursor)
     os.unlink(file_path)
 
-    if len(flow_lines) <= 1:
-        flow_lines.append('Node_0["⚠️ No visualizable AST nodes found"]')
+    # Metrics
+    loc = len([line for line in code.splitlines() if line.strip()])
+    complexity = sum(1 for n in nodes if n["type"] in ["decision", "for", "while"])
+    quality_score = max(30, 100 - complexity*2)
 
-    flow_graph = "\n".join(flow_lines)
+    suggestions = []
+    if complexity > 10:
+        suggestions.append("⚠️ High cyclomatic complexity. Consider simplifying logic.")
+    if loc > 100:
+        suggestions.append("⚠️ File is long. Consider splitting into smaller modules.")
+    if not suggestions:
+        suggestions.append("✅ Looks good!")
 
-    report = "\n".join([
-        "============================",
-        f"🧠 {lang.upper()} Static Analysis Report (Clang)",
-        "============================",
-        "",
-        "📊 Code Metrics:",
-        f"🔹 Lines of Code (LOC): {len(code.splitlines())}",
-        "🔹 Cyclomatic Complexity: (N/A - AST Only)",
-        "🔹 Code Quality Score: (N/A)",
-        "",
-        "📦 Class & Method Summary:",
-        "🔧 Functions extracted from Clang AST",
-        "",
-        "💡 Code Quality Suggestions:",
-        "🧠 Now with structured Mermaid-safe flowchart output.",
-        "",
-        "🔍 Code Flow Visualization:",
-        flow_graph
-    ])
-    return report
+    report_text = f"""============================
+🧠 {lang.upper()} Static Analysis Report
+============================
+
+📊 Code Metrics:
+🔹 Lines of Code (LOC): {loc}
+🔹 Cyclomatic Complexity: {complexity}
+🔹 Code Quality Score: {quality_score}%
+
+💡 Code Quality Suggestions:
+""" + "\n".join(suggestions)
+
+    return {
+        "report": report_text,
+        "metrics": {
+            "loc": loc,
+            "cyclomatic_complexity": complexity,
+            "quality_score": quality_score
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "suggestions": suggestions
+    }
