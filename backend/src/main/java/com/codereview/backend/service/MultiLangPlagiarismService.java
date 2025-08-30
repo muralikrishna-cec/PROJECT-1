@@ -13,7 +13,7 @@ public class MultiLangPlagiarismService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${python.microservice.plagiarism.url:http://localhost:6000/plagiarism}")
+    @Value("${python.microservice.plagiarism.url:http://localhost:8000/plagiarism}")
     private String pythonServiceUrl;
 
     public MultiLangPlagiarismService(RestTemplate restTemplate) {

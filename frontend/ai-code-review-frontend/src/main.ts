@@ -2,8 +2,10 @@
 import './monaco-worker-config'; // ✅ Ensure this file exists
 
 import { bootstrapApplication } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
+import { routes } from './app/app.routes';
 
 (window as any).MonacoEnvironment = {
   getWorkerUrl: function (_moduleId: string, label: string) {
@@ -23,5 +25,10 @@ import { App } from './app/app';
   }
 };
 
-
-bootstrapApplication(App, appConfig).catch((err) => console.error(err));
+bootstrapApplication(App, {
+  ...appConfig,
+  providers: [
+    ...(appConfig.providers || []),
+    provideRouter(routes)  // 👈 add this
+  ]
+}).catch((err) => console.error(err));

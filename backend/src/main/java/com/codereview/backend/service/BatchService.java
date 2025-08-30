@@ -13,7 +13,7 @@ import java.util.Map;
 public class BatchService {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String PYTHON_URL = "http://localhost:6000/batch";
+    private final String PYTHON_URL = "http://localhost:8000/batch";
 
     public ResponseEntity<String> analyzeRepo(BatchRequest request) {
         // Forward same JSON to Python

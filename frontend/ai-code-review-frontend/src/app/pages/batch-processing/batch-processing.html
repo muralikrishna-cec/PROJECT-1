@@ -1,0 +1,52 @@
+<section class="min-h-screen bg-gray-900 text-white py-16 px-6">
+  <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6 text-center">📦 Batch Processing</h2>
+
+    <label class="block mb-2 text-gray-300 font-semibold">GitHub Repository URL</label>
+    <input
+      [(ngModel)]="githubUrl"
+      type="text"
+      placeholder="https://github.com/user/repo"
+      class="w-full p-3 mb-4 rounded bg-gray-800 border border-gray-700"
+    />
+
+    <button
+      (click)="analyzeBatch()"
+      [disabled]="loading"
+      class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded font-semibold transition w-full"
+    >
+      {{ loading ? '🔄 Analyzing...' : '🚀 Analyze Repository' }}
+    </button>
+
+    <!-- Error message -->
+    <div *ngIf="errorMessage" class="mt-4 text-red-400 font-semibold">
+      {{ errorMessage }}
+    </div>
+
+    <!-- Table output -->
+    <div *ngIf="result && result.length" class="mt-8 overflow-x-auto">
+      <table class="min-w-full border-collapse border border-gray-700">
+        <thead>
+          <tr class="bg-gray-800">
+            <th class="border border-gray-600 px-4 py-2 text-left">Path</th>
+            <th class="border border-gray-600 px-4 py-2 text-left">Language</th>
+            <th class="border border-gray-600 px-4 py-2 text-left">Classes</th>
+            <th class="border border-gray-600 px-4 py-2 text-left">LOC</th>
+            <th class="border border-gray-600 px-4 py-2 text-left">Methods</th>
+            <th class="border border-gray-600 px-4 py-2 text-left">Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let file of result" class="odd:bg-gray-700 even:bg-gray-800">
+            <td class="border border-gray-600 px-4 py-2">{{ file.path }}</td>
+            <td class="border border-gray-600 px-4 py-2">{{ file.language }}</td>
+            <td class="border border-gray-600 px-4 py-2">{{ file.classes }}</td>
+            <td class="border border-gray-600 px-4 py-2">{{ file.loc }}</td>
+            <td class="border border-gray-600 px-4 py-2">{{ file.methods }}</td>
+            <td class="border border-gray-600 px-4 py-2">{{ file.note }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

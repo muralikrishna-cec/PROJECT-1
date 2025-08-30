@@ -16,7 +16,7 @@ public class MultiLangCodeAnalysisService {
     }
 
     public Map<String, Object> analyze(String code, String language) {
-        String pythonServiceUrl = "http://localhost:6000/analyze";
+        String pythonServiceUrl = "http://localhost:8000/analyze";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
