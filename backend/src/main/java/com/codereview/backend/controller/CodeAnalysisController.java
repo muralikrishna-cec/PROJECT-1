@@ -3,9 +3,11 @@ package com.codereview.backend.controller;
 import com.codereview.backend.model.AISuggestionRequest;
 import com.codereview.backend.model.PlagiarismRequest;
 import com.codereview.backend.service.*;
+import com.codereview.backend.util.BatchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -28,6 +30,9 @@ public class CodeAnalysisController {
 
     @Autowired
     private MultiLangPlagiarismService multiLangPlagiarismService;
+
+    @Autowired
+    private  BatchService batchService;
 
     @PostMapping("/analyze")
     public ResponseEntity<Map<String, Object>> analyzeCode(@RequestBody Map<String, String> request) {
@@ -69,4 +74,20 @@ public class CodeAnalysisController {
         String result = aiSuggestionService.getAISuggestion(request.getCode(), request.getLanguage());
         return ResponseEntity.ok(result);
     }
+
+    /**
+     * Case 1: Analyze repository from GitHub link
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<String> analyzeRepoFromGithub(@RequestBody BatchRequest request) {
+        if ("github".equalsIgnoreCase(request.getType())) {
+            return batchService.analyzeRepo(request);
+        }
+        // Later we’ll add "zip" type support here
+        return ResponseEntity.badRequest().body("Unsupported type: " + request.getType());
+    }
+
+    /* ** Case 2: Analyze repository from uploaded ZIP file */
+
+
 }

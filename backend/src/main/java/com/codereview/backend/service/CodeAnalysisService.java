@@ -34,7 +34,7 @@ public class CodeAnalysisService {
 
             CompilationUnit cu = parseResult.getResult().get();
 
-            // ===== Metrics =====
+            // Metrics calculator
             MetricsCalculator metrics = new MetricsCalculator();
             cu.accept(metrics, null);
 
@@ -48,32 +48,20 @@ public class CodeAnalysisService {
                     "quality_score", qualityScore
             ));
 
-            // Suggestions from metrics
+            // Suggestion thresholds
             if (complexity > 10) suggestions.add("⚠️ High cyclomatic complexity. Consider simplifying logic.");
             if (loc > 100) suggestions.add("⚠️ File is long. Consider splitting into smaller modules.");
 
-            // ===== Nodes & Edges =====
+            // Nodes and edges for D3
             int[] counter = {1};
             for (TypeDeclaration<?> type : cu.getTypes()) {
                 if (type instanceof ClassOrInterfaceDeclaration) {
-                    processClass((ClassOrInterfaceDeclaration) type, null, nodes, edges, suggestions, counter);
+                    processClass((ClassOrInterfaceDeclaration) type, null, nodes, edges, suggestions, counter, report);
                 }
             }
 
             if (suggestions.isEmpty()) suggestions.add("✅ Looks good!");
 
-            // ===== Build textual report =====
-            report.append("============================\n")
-                    .append("🧠 Java Static Analysis Report\n")
-                    .append("============================\n\n")
-                    .append("📊 Code Metrics:\n")
-                    .append("🔹 Lines of Code (LOC): ").append(loc).append("\n")
-                    .append("🔹 Cyclomatic Complexity: ").append(complexity).append("\n")
-                    .append("🔹 Code Quality Score: ").append(qualityScore).append("%\n\n")
-                    .append("💡 Code Quality Suggestions:\n");
-            for (String s : suggestions) report.append(s).append("\n");
-
-            // ===== Return everything =====
             result.put("nodes", nodes);
             result.put("edges", edges);
             result.put("suggestions", suggestions);
@@ -86,10 +74,9 @@ public class CodeAnalysisService {
         return result;
     }
 
-    // ===== Process Class =====
     private void processClass(ClassOrInterfaceDeclaration cls, String parentId,
                               List<Map<String, Object>> nodes, List<Map<String, String>> edges,
-                              List<String> suggestions, int[] counter) {
+                              List<String> suggestions, int[] counter, StringBuilder report) {
 
         String classId = "Class_" + cls.getNameAsString();
         nodes.add(Map.of(
@@ -100,10 +87,24 @@ public class CodeAnalysisService {
         ));
         if (parentId != null) edges.add(Map.of("from", parentId, "to", classId));
 
+        report.append("\n============================\nClass: ").append(cls.getNameAsString()).append("\n============================\n");
+
+        int methodCount = 0;
         for (BodyDeclaration<?> member : cls.getMembers()) {
             if (member instanceof MethodDeclaration) {
+                methodCount++;
                 MethodDeclaration method = (MethodDeclaration) member;
                 String methodId = "Method_" + method.getNameAsString();
+
+                int methodLoc = method.getBody().map(b -> (int) b.toString().lines()
+                        .map(String::trim)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("//"))
+                        .count()).orElse(0);
+
+                int methodComplexity = method.getBody().map(MetricsCalculator::countDecisionPointsStatic).orElse(0) + 1;
+                int localVarCount = method.getBody().map(MetricsCalculator::countLocalVariablesStatic).orElse(0);
+                int maxNesting = method.getBody().map(MetricsCalculator::maxNestingLevelStatic).orElse(0);
+
                 nodes.add(Map.of(
                         "id", methodId,
                         "type", "method",
@@ -114,11 +115,27 @@ public class CodeAnalysisService {
                 ));
                 edges.add(Map.of("from", classId, "to", methodId));
 
-                // Suggestions: JavaDoc & parameter count
+                // Suggestions
                 if (!method.getJavadoc().isPresent())
                     suggestions.add("⚠️ Add JavaDoc to method: " + method.getNameAsString());
                 if (method.getParameters().size() > 3)
                     suggestions.add("⚠️ Method " + method.getNameAsString() + " has too many parameters.");
+                if (methodComplexity > 10)
+                    suggestions.add("⚠️ Method " + method.getNameAsString() + " has high cyclomatic complexity.");
+                if (methodLoc > 50)
+                    suggestions.add("⚠️ Method " + method.getNameAsString() + " is too long.");
+                if (maxNesting > 3)
+                    suggestions.add("⚠️ Method " + method.getNameAsString() + " has deep nesting.");
+
+                // Append detailed method info to report
+                report.append("\n🔹 Method: ").append(method.getNameAsString())
+                        .append("\n   Parameters: ").append(method.getParameters().size())
+                        .append("\n   Return Type: ").append(method.getType())
+                        .append("\n   LOC: ").append(methodLoc)
+                        .append("\n   Cyclomatic Complexity: ").append(methodComplexity)
+                        .append("\n   Local Variables: ").append(localVarCount)
+                        .append("\n   Max Nesting Level: ").append(maxNesting)
+                        .append("\n");
 
                 if (method.getBody().isPresent()) {
                     for (Statement stmt : method.getBody().get().getStatements()) {
@@ -127,12 +144,12 @@ public class CodeAnalysisService {
                 }
 
             } else if (member instanceof ClassOrInterfaceDeclaration) {
-                processClass((ClassOrInterfaceDeclaration) member, classId, nodes, edges, suggestions, counter);
+                processClass((ClassOrInterfaceDeclaration) member, classId, nodes, edges, suggestions, counter, report);
             }
         }
+        report.append("\nTotal Methods: ").append(methodCount).append("\n");
     }
 
-    // ===== D3.js Flow =====
     private void printD3Flow(Statement stmt, String parentId,
                              List<Map<String, Object>> nodes, List<Map<String, String>> edges, int[] counter) {
 
@@ -145,6 +162,8 @@ public class CodeAnalysisService {
         else if (stmt instanceof DoStmt) label = "🔁 Do-While Loop";
         else if (stmt instanceof ForEachStmt) label = "🔁 Enhanced For Loop";
         else if (stmt instanceof IfStmt) label = "🔀 If Condition";
+        else if (stmt instanceof SwitchStmt) label = "🔀 Switch Case";
+        else if (stmt instanceof TryStmt) label = "⚠️ Try-Catch Block";
         else if (stmt instanceof ExpressionStmt && stmt.toString().contains("System.out"))
             label = "🖨️ " + stmt.toString().replace("System.out.println", "").trim();
         else label = "🔸 " + stmt.toString().trim();
@@ -168,7 +187,7 @@ public class CodeAnalysisService {
         else if (stmt instanceof DoStmt) printD3Flow(((DoStmt) stmt).getBody(), nodeId, nodes, edges, counter);
     }
 
-    // ===== Metrics Calculator =====
+    // Metrics Calculator
     private static class MetricsCalculator extends VoidVisitorAdapter<Void> {
         int loc = 0;
         int totalComplexity = 0;
@@ -189,17 +208,49 @@ public class CodeAnalysisService {
             int count = 0;
             for (Node child : node.getChildNodes()) {
                 if (child instanceof IfStmt || child instanceof ForStmt || child instanceof WhileStmt
-                        || child instanceof DoStmt || child instanceof ForEachStmt) count++;
+                        || child instanceof DoStmt || child instanceof ForEachStmt || child instanceof SwitchStmt)
+                    count++;
                 count += countDecisionPoints(child);
             }
             return count;
+        }
+
+        public static int countDecisionPointsStatic(Node node) {
+            int count = 0;
+            for (Node child : node.getChildNodes()) {
+                if (child instanceof IfStmt || child instanceof ForStmt || child instanceof WhileStmt
+                        || child instanceof DoStmt || child instanceof ForEachStmt || child instanceof SwitchStmt)
+                    count++;
+                count += countDecisionPointsStatic(child);
+            }
+            return count;
+        }
+
+        public static int countLocalVariablesStatic(Node node) {
+            int count = 0;
+            for (Node child : node.getChildNodes()) {
+                if (child instanceof VariableDeclarator) count++;
+                count += countLocalVariablesStatic(child);
+            }
+            return count;
+        }
+
+        public static int maxNestingLevelStatic(Node node) {
+            int max = 0;
+            for (Node child : node.getChildNodes()) {
+                int childLevel = maxNestingLevelStatic(child);
+                max = Math.max(max, childLevel);
+            }
+            if (node instanceof IfStmt || node instanceof ForStmt || node instanceof WhileStmt
+                    || node instanceof DoStmt || node instanceof ForEachStmt || node instanceof SwitchStmt)
+                max += 1;
+            return max;
         }
 
         public int getLoc() { return loc; }
         public int getTotalComplexity() { return totalComplexity; }
     }
 
-    // ===== Parse Problem Formatter =====
     private String formatParseProblem(Problem problem, String code) {
         String message = problem.getMessage();
         int line = problem.getLocation()
@@ -214,3 +265,5 @@ public class CodeAnalysisService {
         return "🔸 Line " + line + ": " + message;
     }
 }
+
+

@@ -51,13 +51,8 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
 
   private monacoEditorInstance!: monaco.editor.IStandaloneCodeEditor;
   private svg!: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-  private simulation: d3.Simulation<D3Node, D3Edge> | null = null;
-  private nodeElements!: d3.Selection<SVGPathElement, D3Node, SVGGElement, unknown>;
-private linkElements!: d3.Selection<SVGLineElement, D3Edge, SVGGElement, unknown>;
-
-
-
-  private edgeLabelElements!: d3.Selection<SVGTextElement, D3Edge, SVGGElement, unknown>;
+  private nodeElements!: d3.Selection<SVGPathElement, d3.HierarchyNode<GraphNode>, SVGGElement, unknown>;
+  private linkElements!: d3.Selection<SVGLineElement, d3.HierarchyLink<GraphNode>, SVGGElement, unknown>;
 
   isPlaying = false;
   private stepIndex = 0;
@@ -84,12 +79,17 @@ private linkElements!: d3.Selection<SVGLineElement, D3Edge, SVGGElement, unknown
     }
   }
 
-  ngAfterViewChecked() {
-    if (this.activeTab === 'visualization' && this.outputRaw?.nodes && this.outputRaw?.edges && !this.graphRendered) {
-      this.renderAndPrepareGraph(this.outputRaw.nodes, this.outputRaw.edges);
-      this.graphRendered = true;
-    }
+ ngAfterViewChecked() {
+  if (this.activeTab === 'visualization' && this.outputRaw?.nodes && this.outputRaw?.edges && !this.graphRendered) {
+    // always clear old graph before rendering new
+    const container = d3.select('#graph-container');
+    container.selectAll('*').remove();
+
+    this.renderAndPrepareGraph(this.outputRaw.nodes, this.outputRaw.edges);
+    this.graphRendered = true;
+    this.cdr.detectChanges();
   }
+}
 
   private mapLangToMonaco(lang: string): string {
     const l = lang.toLowerCase();
@@ -109,21 +109,39 @@ private linkElements!: d3.Selection<SVGLineElement, D3Edge, SVGGElement, unknown
     }
   }
 
-  submitCode(): void {
-    const code = this.monacoEditorInstance.getValue();
-    const payload = { language: this.selectedLang, code };
+ submitCode(): void {
+  if (!this.monacoEditorInstance) return;
+  const code = this.monacoEditorInstance.getValue();
+  const payload = { language: this.selectedLang, code };
 
-    this.http.post<AnalysisResponse>('http://localhost:8080/api/analyze', payload).subscribe({
-      next: (res) => {
-        this.outputRaw = res;
-        this.populateMetricsAndReport(res);
-        this.graphRendered = false;
-        this.cdr.detectChanges();
-        if (res.nodes && res.edges) this.setActiveTab('visualization'); else this.setActiveTab('analysis');
-      },
-      error: (err) => { console.error('Backend error:', err); alert('❌ Backend connection failed.'); }
-    });
-  }
+  this.http.post<AnalysisResponse>('http://localhost:8080/api/analyze', payload).subscribe({
+    next: (res) => {
+      // update data
+      this.outputRaw = res;
+      this.populateMetricsAndReport(res);
+
+      // reset graph
+      this.graphRendered = false;
+      this.stepIndex = 0;
+
+      // clear old SVG completely
+      const container = d3.select('#graph-container');
+      container.selectAll('*').remove();
+
+      // force Angular update
+      this.cdr.detectChanges();
+
+      // switch tab
+      this.activeTab = res.nodes && res.edges ? 'visualization' : 'analysis';
+      this.cdr.detectChanges();
+    },
+    error: (err) => {
+      console.error('Backend error:', err);
+      alert('❌ Backend connection failed.');
+      this.cdr.detectChanges();
+    }
+  });
+}
 
   private populateMetricsAndReport(res: AnalysisResponse) {
     const m = res.metrics || {};
@@ -137,6 +155,7 @@ private linkElements!: d3.Selection<SVGLineElement, D3Edge, SVGGElement, unknown
     const reportText = (typeof res.report === 'string' && res.report.trim()) ? res.report.trim() :
       (typeof res.analysis === 'string' && res.analysis.trim()) ? res.analysis.trim() : 'No report available.';
     this.formattedOutput = [{ title: 'Static Report', content: marked.parse(reportText) as string }];
+    this.cdr.detectChanges(); // ensure report UI updates
   }
 
   setActiveTab(tab: 'analysis' | 'visualization' | 'suggestions') {
@@ -149,119 +168,97 @@ private linkElements!: d3.Selection<SVGLineElement, D3Edge, SVGGElement, unknown
     this.renderD3Graph(nodes, edges);
     this.prepareAnimation(nodes, edges);
     this.resetD3();
+    this.cdr.detectChanges(); // update UI after graph render
   }
 
 private renderD3Graph(nodes: GraphNode[], edges: GraphEdge[]) {
-  const d3Nodes: D3Node[] = nodes.map(n => ({ ...n }));
-  const d3Edges: D3Edge[] = edges.map(e => ({
-    ...e,
-    source: d3Nodes.find(n => n.id === e.from)!,
-    target: d3Nodes.find(n => n.id === e.to)!
-  }));
-
   const container = d3.select('#graph-container');
   container.selectAll('*').remove();
   const el = container.node() as HTMLElement;
-  const width = el?.clientWidth || 800;
-  const height = el?.clientHeight || 500;
+  const width = el.clientWidth || 800;
+  const height = el.clientHeight || 600;
 
-  this.svg = container.append('svg').attr('width', width).attr('height', height);
+  this.svg = container.append('svg')
+    .attr('width', width)
+    .attr('height', height);
 
   // Arrow markers
   this.svg.append('defs').append('marker')
     .attr('id', 'arrowhead')
     .attr('viewBox', '0 -5 10 10')
-    .attr('refX', 20)
+    .attr('refX', 15)
     .attr('refY', 0)
     .attr('markerWidth', 6)
     .attr('markerHeight', 6)
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', '#cbd5e1');
+    .attr('fill', '#60a5fa');
 
-  this.simulation = d3.forceSimulation<D3Node>(d3Nodes)
-    .force('link', d3.forceLink<D3Node, D3Edge>(d3Edges).id(d => d.id).distance(120))
-    .force('charge', d3.forceManyBody().strength(-400))
-    .force('center', d3.forceCenter(width / 2, height / 2));
+  const padding = { top: 50, right: 50, bottom: 50, left: 50 };
 
-// ---------------- Links ----------------
-this.linkElements = this.svg.append('g')
-  .selectAll<SVGLineElement, D3Edge>('line')
-  .data(d3Edges)
-  .enter()
-  .append('line')
-  .attr('stroke', '#cbd5e1')
-  .attr('stroke-width', 2)
-  .attr('marker-end', 'url(#arrowhead)');
+  // Stratify nodes
+  const root: d3.HierarchyNode<GraphNode> = d3.stratify<GraphNode>()
+    .id(d => d.id)
+    .parentId(d => edges.find(e => e.to === d.id)?.from ?? null)(nodes as any);
 
-// ---------------- Edge labels ----------------
-this.edgeLabelElements = this.svg.append('g')
-  .selectAll<SVGTextElement, D3Edge>('text')
-  .data(d3Edges)
-  .enter()
-  .append('text')
-  .text(d => d.condition ?? '')
-  .attr('fill', '#ffffff')
-  .attr('font-size', 12)
-  .attr('text-anchor', 'middle');
+  // Tree layout with fixed spacing
+  const treeLayout = d3.tree<GraphNode>()
+    .nodeSize([200, 120]); // [horizontal, vertical spacing]
+  treeLayout(root);
 
-// ---------------- Nodes ----------------
-this.nodeElements = this.svg.append('g')
-  .selectAll<SVGPathElement, D3Node>('path')
-  .data(d3Nodes)
-  .enter()
-  .append('path')
-  .attr('d', d => {
-    if (d.type === 'decision') return d3.symbol().type(d3.symbolDiamond).size(4000)();
-    else if (d.type === 'start' || d.type === 'end') return d3.symbol().type(d3.symbolCircle).size(4000)();
-    else return d3.symbol().type(d3.symbolCircle).size(2500)();
-  })
-  .attr('fill', '#60a5fa')
-  .attr('stroke', '#3b82f6')
-  .attr('stroke-width', 2)
-  .attr('transform', d => `translate(${d.x ?? width / 2},${d.y ?? height / 2})`);
+  // Calculate min/max X for centering
+  const nodesDesc = root.descendants();
+  const minX = d3.min(nodesDesc, d => d.x!)!;
+  const maxX = d3.max(nodesDesc, d => d.x!)!;
+  const offsetX = (width - padding.left - padding.right - (maxX - minX)) / 2 - minX;
 
-// ---------------- Node labels ----------------
-this.svg.append('g')
-  .selectAll<SVGTextElement, D3Node>('text.node-label')
-  .data(d3Nodes)
-  .enter()
-  .append('text')
-  .attr('class', 'node-label')
-  .text(d => d.label)
-  .attr('fill', '#ffffff')
-  .attr('text-anchor', 'middle')
-  .attr('dy', 5)
-  .attr('font-size', 12)
-  .attr('x', d => d.x ?? width / 2)
-  .attr('y', d => d.y ?? height / 2);
+  // Apply padding and horizontal centering
+  nodesDesc.forEach(d => {
+    d.x = d.x! + offsetX + padding.left;
+    d.y = d.y! + padding.top;
+  });
 
-// ---------------- Tick handler ----------------
-this.simulation.on('tick', () => {
   // Links
-  this.linkElements
+  this.linkElements = this.svg.append('g')
+    .selectAll<SVGLineElement, d3.HierarchyLink<GraphNode>>('line')
+    .data(root.links())
+    .enter()
+    .append('line')
     .attr('x1', d => d.source.x!)
     .attr('y1', d => d.source.y!)
     .attr('x2', d => d.target.x!)
-    .attr('y2', d => d.target.y!);
+    .attr('y2', d => d.target.y!)
+    .attr('stroke', '#9ca3af')
+    .attr('stroke-width', 2)
+    .attr('marker-end', 'url(#arrowhead)');
 
   // Nodes
-  this.nodeElements
+  this.nodeElements = this.svg.append('g')
+    .selectAll<SVGPathElement, d3.HierarchyNode<GraphNode>>('path')
+    .data(nodesDesc)
+    .enter()
+    .append('path')
+    .attr('d', d3.symbol().type(d3.symbolCircle).size(3000))
+    .attr('fill', '#60a5fa')
+    .attr('stroke', '#3b82f6')
+    .attr('stroke-width', 2)
     .attr('transform', d => `translate(${d.x},${d.y})`);
 
-  // Node labels
-  this.svg.selectAll('text.node-label')
-    .attr('x', (d: any) => d.x!)
-    .attr('y', (d: any) => d.y!);
-
-  // Edge labels
-  this.edgeLabelElements
-    .attr('x', d => (d.source.x! + d.target.x!) / 2)
-    .attr('y', d => (d.source.y! + d.target.y!) / 2);
-});
-
+  // Labels
+  this.svg.append('g')
+    .selectAll<SVGTextElement, d3.HierarchyNode<GraphNode>>('text')
+    .data(nodesDesc)
+    .enter()
+    .append('text')
+    .text(d => d.data.label)
+    .attr('x', d => d.x!)
+    .attr('y', d => d.y! + 5)
+    .attr('text-anchor', 'middle')
+    .attr('fill', '#f9fafb')
+    .attr('font-size', 12);
 }
+
 
 
   private prepareAnimation(nodes: GraphNode[], edges: GraphEdge[]) {
@@ -283,85 +280,85 @@ this.simulation.on('tick', () => {
     this.stepIndex = 0;
   }
 
-  playD3() {
-    if (this.isPlaying) return;
-    this.isPlaying = true;
-    this.tickD3();
-  }
-
-  pauseD3() {
-    this.isPlaying = false;
-    if (this.timerRef) clearTimeout(this.timerRef);
-  }
-
+  playD3() { if (this.isPlaying) return; this.isPlaying = true; this.tickD3(); }
+  pauseD3() { this.isPlaying = false; if (this.timerRef) clearTimeout(this.timerRef); }
   resetD3() {
     this.pauseD3();
     this.stepIndex = 0;
     this.nodeElements?.attr('fill', '#60a5fa').attr('stroke', '#3b82f6');
-    this.linkElements?.attr('stroke', '#cbd5e1').attr('stroke-width', 2);
-    this.svg.selectAll('text').attr('fill', '#ffffff');
+    this.linkElements?.attr('stroke', '#9ca3af').attr('stroke-width', 2);
+    this.svg.selectAll('text').attr('fill', '#f9fafb');
   }
-// ================= Animation =================
+
 private tickD3() {
   if (!this.isPlaying) return;
   const totalSteps = this.nodeOrder.length + this.edgesOrder.length;
   if (this.stepIndex >= totalSteps) { this.isPlaying = false; return; }
 
+  // Node highlighting
   if (this.stepIndex < this.nodeOrder.length) {
-    // Highlight node
     const nodeId = this.nodeOrder[this.stepIndex];
-    this.nodeElements.filter(d => d.id === nodeId)
-      .transition().duration(this.speedMs / 2).attr('fill', '#facc15');
-  } else {
-    // Animate edge flow
-    const edgeIdx = this.stepIndex - this.nodeOrder.length;
-    const e = this.edgesOrder[edgeIdx];
-    const edgePath = this.linkElements.filter(d => d.from === e.from && d.to === e.to);
+    this.nodeElements.filter(d => d.data.id === nodeId)
+      .transition().duration(this.speedMs / 2)
+      .attr('fill', '#ef4444'); // orange → you can change to e.g., '#3b82f6' (blue)
+    
+    // Change text color of that node
+    this.svg.selectAll('text')
+      .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === nodeId)
+      .transition().duration(this.speedMs / 2)
+      .attr('fill', '#ffffff'); // red for text
+  } 
+  // Edge highlighting
+  // Edge highlighting
+else {
+  const edgeIdx = this.stepIndex - this.nodeOrder.length;
+  const e = this.edgesOrder[edgeIdx];
+  const edgePath = this.linkElements.filter(d => d.source.data.id === e.from && d.target.data.id === e.to);
 
-    // Highlight edge
-    edgePath.transition().duration(this.speedMs / 2).attr('stroke', '#f97316').attr('stroke-width', 4);
+  edgePath.transition().duration(this.speedMs / 2)
+    .attr('stroke', '#10b981') // green
+    .attr('stroke-width', 3);
 
-    // Animate circle along path
-    const pathEl = edgePath.node() as SVGPathElement;
-    if (pathEl) {
-      const length = pathEl.getTotalLength();
-      const dot = this.svg.append('circle')
-        .attr('r', 6)
-        .attr('fill', '#f97316')
-        .attr('opacity', 1);
+  const pathEl = edgePath.node() as SVGLineElement;
+  if (pathEl) {
+    const length = pathEl.getTotalLength();
+    const dot = this.svg.append('circle')
+      .attr('r', 3)             // smaller circle
+      .attr('fill', '#10b981')
+      .attr('opacity', 1)
+      .raise();                  // bring to front
 
-      dot.transition()
-        .duration(this.speedMs)
-        .attrTween('transform', () => t => {
-          const p = pathEl.getPointAtLength(t * length);
-          return `translate(${p.x},${p.y})`;
-        })
-        .on('end', () => dot.remove());
-    }
+    dot.transition()
+      .duration(this.speedMs)
+      .attrTween('transform', () => t => {
+        const p = pathEl.getPointAtLength(t * length);
+        return `translate(${p.x},${p.y})`;
+      })
+      .on('end', () => dot.remove());
   }
+}
+
 
   this.stepIndex++;
   this.timerRef = setTimeout(() => this.tickD3(), this.speedMs);
 }
 
 
-fetchAISuggestions() {
+  fetchAISuggestions() {
   if (!this.monacoEditorInstance) return;
-
   const code = this.monacoEditorInstance.getValue();
   const payload = { language: this.selectedLang, code };
 
   this.http.post<any>('http://localhost:8080/api/ai-suggest', payload)
     .subscribe({
       next: (res) => {
-        // Wrap the single string into an array
         this.aiSuggestions = res.response ? [res.response] : [];
-        this.cdr.detectChanges();
+        this.cdr.detectChanges(); // force UI update
       },
       error: (err) => {
         console.error('AI Suggestions error:', err);
         this.aiSuggestions = ["❌ Failed to fetch AI suggestions."];
-        this.cdr.detectChanges();
+        this.cdr.detectChanges(); // force UI update
       }
     });
 }
@@ -375,4 +372,35 @@ fetchAISuggestions() {
     const text = this.formattedOutput.map(sec => `${sec.title}\n${sec.content}`).join('\n\n');
     navigator.clipboard.writeText(text).then(() => alert('📋 Report copied!'));
   }
+
+highlightReport(text: string): string {
+  if (!text) return '';
+
+  // Highlight warnings
+  text = text.replace(/⚠️ (.+)/g, `<span class="text-red-400 font-bold">⚠️ $1</span>`);
+
+  // Highlight info lines
+  text = text.replace(/🔹 Method: (.+)/g, `<span class="text-blue-400 font-semibold">🔹 Method: $1</span>`);
+  text = text.replace(/Class: (.+)/g, `<span class="text-yellow-300 font-bold">Class: $1</span>`);
+
+  // Highlight metrics (LOC, Complexity, Variables)
+  text = text.replace(/LOC: (\d+)/g, `LOC: <span class="text-green-300 font-bold">$1</span>`);
+  text = text.replace(/Cyclomatic Complexity: (\d+)/g, `Cyclomatic Complexity: <span class="text-orange-400 font-bold">$1</span>`);
+  text = text.replace(/Local Variables: (\d+)/g, `Local Variables: <span class="text-purple-400 font-bold">$1</span>`);
+  text = text.replace(/Max Nesting Level: (\d+)/g, `Max Nesting Level: <span class="text-pink-400 font-bold">$1</span>`);
+  text = text.replace(/Total Methods: (\d+)/g, `Total Methods: <span class="text-cyan-400 font-bold">$1</span>`);
+
+  // Success marks
+  text = text.replace(/✅ (.+)/g, `<span class="text-green-400 font-semibold">✅ $1</span>`);
+
+  // Preserve line breaks
+  return text.replace(/\n/g, '<br>');
+}
+
+toArray(input: string | string[] | undefined): string[] {
+  if (!input) return [];
+  return Array.isArray(input) ? input : [input];
+}
+
+
 }
