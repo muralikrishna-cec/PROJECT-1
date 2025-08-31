@@ -5,10 +5,24 @@ def analyze_python(code: str):
     try:
         tree = ast.parse(code)
         functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-        classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
 
         node_counter = itertools.count(1)
-        nodes, edges, report = [], [], []
+        nodes, edges = [], []
+
+        # Metrics initialization
+        metrics = {
+            "loc": 0,
+            "classes": 0,
+            "functions": 0,
+            "loops": 0,
+            "returns": 0,
+            "assignments": 0,
+            "operators": 0,
+            "function_calls": 0,
+            "cyclomatic_complexity": 0,
+            "max_nesting": 0,
+            "comments": 0
+        }
 
         def safe_unparse(node):
             try:
@@ -16,114 +30,167 @@ def analyze_python(code: str):
             except Exception:
                 return str(node)
 
-        def add_node(label, ntype="statement", line=-1):
+        def add_node(label, ntype="statement"):
             node_id = f"n{next(node_counter)}"
-            nodes.append({"id": node_id, "type": ntype, "label": label, "line": line})
+            nodes.append({"id": node_id, "type": ntype, "label": label})
             return node_id
 
-        def build_flow(node, parent_id=None):
-            line = getattr(node, 'lineno', -1)
+        def build_flow(node, parent_id=None, depth=1):
+            metrics["max_nesting"] = max(metrics["max_nesting"], depth)
 
-            if isinstance(node, ast.If):
-                curr_id = add_node(f"🔀 If: {safe_unparse(node.test)}", "decision", line)
-                if parent_id:
-                    edges.append({"from": parent_id, "to": curr_id})
-                report.append(f"\n🔹 If Condition: {safe_unparse(node.test)}, Line: {line}")
+            # Class
+            if isinstance(node, ast.ClassDef):
+                metrics["classes"] += 1
+                curr_id = add_node(f"📦 Class: {node.name}", "class")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 for stmt in node.body:
-                    build_flow(stmt, curr_id)
-                for stmt in node.orelse:
-                    build_flow(stmt, curr_id)
+                    build_flow(stmt, curr_id, depth+1)
                 return curr_id
 
-            elif isinstance(node, (ast.For, ast.While)):
-                loop_type = "For" if isinstance(node, ast.For) else "While"
-                loop_desc = f"🔁 {loop_type}: {safe_unparse(node.target) if hasattr(node, 'target') else safe_unparse(node.test)}"
-                curr_id = add_node(loop_desc, "loop", line)
-                if parent_id:
-                    edges.append({"from": parent_id, "to": curr_id})
-                for stmt in node.body:
-                    build_flow(stmt, curr_id)
-                report.append(f"\n🔹 Loop: {loop_type}, Line: {line}")
-                return curr_id
-
+            # Function
             elif isinstance(node, ast.FunctionDef):
-                func_id = add_node(f"🔧 Function: {node.name}", "method", line)
-                if parent_id:
-                    edges.append({"from": parent_id, "to": func_id})
-                report.append(f"\n🔹 Function: {node.name}, Parameters: {len(node.args.args)}, Line: {line}")
+                metrics["functions"] += 1
+                curr_id = add_node(f"🔧 Function: {node.name}", "function")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 for stmt in node.body:
-                    build_flow(stmt, func_id)
-                return func_id
-
-            elif isinstance(node, ast.ClassDef):
-                class_id = add_node(f"📦 Class: {node.name}", "class", line)
-                if parent_id:
-                    edges.append({"from": parent_id, "to": class_id})
-                report.append(f"\n============================\nClass: {node.name}\n============================\n")
-                for stmt in node.body:
-                    build_flow(stmt, class_id)
-                return class_id
-
-            else:
-                curr_id = add_node(type(node).__name__, "statement", line)
-                if parent_id:
-                    edges.append({"from": parent_id, "to": curr_id})
+                    build_flow(stmt, curr_id, depth+1)
                 return curr_id
 
-        # Build flow for classes and functions
-        root_id = add_node("Module", "root")
-        for cls in classes:
-            build_flow(cls, root_id)
+            # Loops
+            elif isinstance(node, ast.For):
+                metrics["loops"] += 1
+                metrics["cyclomatic_complexity"] += 1
+                curr_id = add_node(f"🔁 For: {safe_unparse(node.target)} in {safe_unparse(node.iter)}", "for")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                for stmt in node.body:
+                    build_flow(stmt, curr_id, depth+1)
+                return curr_id
+
+            elif isinstance(node, ast.While):
+                metrics["loops"] += 1
+                metrics["cyclomatic_complexity"] += 1
+                curr_id = add_node(f"🔁 While: {safe_unparse(node.test)}", "while")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                for stmt in node.body:
+                    build_flow(stmt, curr_id, depth+1)
+                return curr_id
+
+            # If statement
+            elif isinstance(node, ast.If):
+                metrics["cyclomatic_complexity"] += 1
+                curr_id = add_node(f"🔀 If: {safe_unparse(node.test)}", "decision")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+
+                # True branch
+                last_true = curr_id
+                for stmt in node.body:
+                    last_true = build_flow(stmt, last_true, depth+1)
+
+                # False branch
+                last_false = curr_id
+                for stmt in node.orelse:
+                    last_false = build_flow(stmt, last_false, depth+1)
+
+                if node.orelse:
+                    merge_id = add_node("Merge", "merge")
+                    edges.append({"from": last_true, "to": merge_id})
+                    edges.append({"from": last_false, "to": merge_id})
+                    return merge_id
+                return last_true
+
+            # Return
+            elif isinstance(node, ast.Return):
+                metrics["returns"] += 1
+                curr_id = add_node(f"🔹 Return: {safe_unparse(node.value)}", "return")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            # Assignment
+            elif isinstance(node, ast.Assign):
+                metrics["assignments"] += 1
+                curr_id = add_node(f"🔸 Assign: {safe_unparse(node)}", "assign")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            elif isinstance(node, ast.AugAssign):
+                metrics["assignments"] += 1
+                metrics["operators"] += 1
+                curr_id = add_node(f"🔸 {safe_unparse(node)}", "assign")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            # Function calls
+            elif isinstance(node, ast.Call):
+                metrics["function_calls"] += 1
+                curr_id = add_node(f"🖨️ Call: {safe_unparse(node.func)}", "call")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            # Boolean operators
+            elif isinstance(node, ast.BoolOp):
+                metrics["cyclomatic_complexity"] += 1
+                curr_id = add_node(f"BooleanOp: {safe_unparse(node)}", "expr")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            # Other
+            else:
+                curr_id = add_node(type(node).__name__, "other")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+        # Build graph for each function
         for func in functions:
-            build_flow(func, root_id)
+            func_id = add_node(f"Function: {func.name}", "function")
+            for stmt in func.body:
+                build_flow(stmt, func_id)
 
-        # --- Metrics ---
-        loc = len([line for line in code.splitlines() if line.strip()])
-        complexity = 1 + sum(1 for n in ast.walk(tree) if isinstance(n, (ast.If, ast.For, ast.While, ast.Try, ast.BoolOp)))
-        comment_count = len([line for line in code.splitlines() if line.strip().startswith("#")])
-        quality_score = max(30, min(100, 100 - complexity*2 - (loc//100)*5))
+        # Metrics calculation
+        metrics["loc"] = len([line for line in code.splitlines() if line.strip()])
+        metrics["comments"] = len([line for line in code.splitlines() if line.strip().startswith("#")])
+        metrics["cyclomatic_complexity"] += 1
+        metrics["quality_score"] = max(30, min(100, 100 - metrics["cyclomatic_complexity"]*2 - (metrics["loc"]//100)*5))
 
+        # Suggestions
         suggestions = []
-        if not functions:
-            suggestions.append("⚠️ No functions detected. Consider modularizing your code.")
-        if complexity > 10:
-            suggestions.append("⚠️ High cyclomatic complexity. Consider simplifying logic.")
-        if loc > 100:
-            suggestions.append("⚠️ File is long. Consider splitting into smaller modules.")
-        if not suggestions:
-            suggestions.append("✅ Looks good!")
+        if metrics["functions"] == 0: suggestions.append("⚠️ No functions detected.")
+        if metrics["cyclomatic_complexity"] > 10: suggestions.append("⚠️ High cyclomatic complexity.")
+        if metrics["loops"] > 5: suggestions.append("⚠️ Many loops detected.")
+        if metrics["loc"] > 100: suggestions.append("⚠️ File is long.")
+        if metrics["max_nesting"] > 3: suggestions.append("⚠️ Deep nesting.")
+        if not suggestions: suggestions.append("✅ Looks good!")
+
+        # Frontend-ready report
+        report_text = f"""
+        
+=================================
+🧠 Python Static Analysis Report
+=================================
+
+📊 Code Metrics:
+🔹 Lines of Code (LOC): {metrics['loc']}
+🔹 Classes: {metrics['classes']}
+🔹 Functions: {metrics['functions']}
+🔹 Loops: {metrics['loops']}
+🔹 Returns: {metrics['returns']}
+🔹 Assignments: {metrics['assignments']}
+🔹 Operators: {metrics['operators']}
+🔹 Function Calls: {metrics['function_calls']}
+🔹 Cyclomatic Complexity: {metrics['cyclomatic_complexity']}
+🔹 Max Nesting: {metrics['max_nesting']}
+🔹 Comments: {metrics['comments']}
+🔹 Code Quality Score: {metrics['quality_score']}%
+
+💡 Code Quality Suggestions:
+""" + "\n".join(suggestions)
 
         return {
-            "language": "python",
-            "metrics": {
-                "loc": loc,
-                "classes": len(classes),
-                "methods": len(functions),
-                "cyclomatic_complexity": complexity,
-                "comments": comment_count,
-                "quality_score": quality_score
-            },
+            "report": report_text.strip(),
+            "metrics": metrics,
             "nodes": nodes,
             "edges": edges,
-            "suggestions": suggestions,
-            "report": "\n".join(report)
+            "suggestions": suggestions
         }
 
     except SyntaxError as e:
-        return {
-            "language": "python",
-            "error": "Syntax Error",
-            "details": str(e),
-            "metrics": {
-                "loc": 0,
-                "classes": 0,
-                "methods": 0,
-                "cyclomatic_complexity": 0,
-                "comments": 0,
-                "quality_score": 0
-            },
-            "nodes": [],
-            "edges": [],
-            "suggestions": [],
-            "report": ""
-        }
+        return {"error": "Syntax Error", "details": str(e)}

@@ -79,28 +79,26 @@ private handleResponse(res: any) {
     return;
   }
 
-  // Flatten metrics for easier template access
   this.result = res.files.map((file: any) => {
     const m = file.metrics?.metrics || {}; // numeric metrics
-    const classList = file.metrics?.classes || []; // class names
-    const funcList = file.metrics?.functions || []; // method names
 
     return {
       path: file.path,
       language: file.language,
-      classes: classList.length,
-      methods: funcList.length,
-      lines_of_code: m.lines_of_code || 0,
+      classes: m.classes || 0,
+      methods: m.functions || 0,         // functions → methods
+      lines_of_code: m.loc || 0,         // loc → lines_of_code
       comments: m.comments || 0,
       cyclomatic_complexity: m.cyclomatic_complexity || 0,
       quality_score: m.quality_score || 0,
-      note: file.metrics?.note || '-',
+      note: (file.metrics?.suggestions?.join('; ')) || '-', // suggestions as note
     };
   });
 
   this.loading = false;
   this.cdr.detectChanges();
 }
+
 
 
 
@@ -113,7 +111,9 @@ private handleResponse(res: any) {
   }
 
   // ✅ Export table as PDF using jsPDF
-  // ✅ Export table as PDF using jsPDF
+ 
+
+
 exportPDF() {
   if (!this.result || this.result.length === 0) {
     this.error = 'No data available to export';
@@ -140,15 +140,15 @@ exportPDF() {
 
   // Table body
   const body = this.result.map(row => [
-    row.path,
-    row.language,
-    row.classes,
-    row.methods,
-    row.lines_of_code,
-    row.comments,
-    row.cyclomatic_complexity,
-    `${row.quality_score}%`,
-    row.note
+    row.path || '-',
+    row.language || '-',
+    row.classes ?? 0,
+    row.methods ?? 0,
+    row.lines_of_code ?? 0,
+    row.comments ?? 0,
+    row.cyclomatic_complexity ?? 0,
+    `${row.quality_score ?? 0}%`,
+    Array.isArray(row.note) ? row.note.join('; ') : row.note || '-'
   ]);
 
   autoTable(doc, {
@@ -156,11 +156,14 @@ exportPDF() {
     head: [headers],
     body: body,
     styles: { fontSize: 10 },
-    headStyles: { fillColor: [22, 160, 133] },
+    headStyles: { fillColor: [22, 160, 133], textColor: 255 },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    margin: { top: 30 }
   });
 
   doc.save('batch-report.pdf');
 }
+
 
 
   // ✅ Style notes column
