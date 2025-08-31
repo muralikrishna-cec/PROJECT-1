@@ -9,7 +9,7 @@ from utils.file_utils import is_allowed, detect_language
 from analysis.python_analyzer import analyze_python
 from analysis.javascript_analyzer import analyze_javascript
 from analysis.c_cpp_analyzer import analyze_c_cpp
-from analysis.java_analyzer import analyze_java   # ✅ new
+from analysis.java_analyzer import analyze_java
 
 def analyze_file(path, language):
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -21,19 +21,30 @@ def analyze_file(path, language):
         return analyze_javascript(code)
     elif language in ["c", "cpp"]:
         return analyze_c_cpp(code, language)
-    elif language == "java":  # ✅ Java added
+    elif language == "java":
         return analyze_java(code)
     else:
-        return {"loc": len(code.splitlines()), "note": "Basic metrics only"}
+        # Fallback for unknown languages
+        return {
+            "metrics": {
+                "lines_of_code": len(code.splitlines()),
+                "functions": 0,
+                "loops": 0,
+                "cyclomatic_complexity": 0,
+                "methods": 0,
+                "comments": 0,
+                "quality_score": 0
+            },
+            "classes": [],
+            "functions": [],
+            "suggestions": [],
+            "note": "Basic metrics only"
+        }
 
 def process_batch(source_type, source_value):
-    """
-    source_type = "upload" | "github"
-    source_value = file path OR github url
-    """
-
     tmpdir = tempfile.mkdtemp(prefix="batch_")
     try:
+        # --- 1. Fetch or extract repo ---
         if source_type == "github":
             url = source_value.rstrip("/")
             if url.endswith(".git"):
@@ -59,24 +70,39 @@ def process_batch(source_type, source_value):
             else:
                 shutil.copy(source_value, tmpdir)
 
+        # --- 2. Prepare reports ---
         files_report = []
         summary = {
             "total_loc": 0,
             "total_files": 0,
             "files_with_errors": 0,
+            "total_cyclomatic_complexity": 0,
+            "total_functions": 0,
+            "total_loops": 0,
         }
         languages = set()
+        all_suggestions = []
 
+        # Keys to safely accumulate
+        numeric_keys = {
+            "lines_of_code": "total_loc",
+            "cyclomatic_complexity": "total_cyclomatic_complexity",
+            "functions": "total_functions",
+            "loops": "total_loops"
+        }
+
+        # --- 3. Walk repo ---
         for root, _, files in os.walk(tmpdir):
             for fname in files:
                 if not is_allowed(fname):
                     continue
                 fpath = os.path.join(root, fname)
                 language = detect_language(fname)
+
                 try:
                     metrics = analyze_file(fpath, language)
                 except Exception as e:
-                    metrics = {"error": str(e)}
+                    metrics = {"metrics": {}, "error": str(e)}
                     summary["files_with_errors"] += 1
 
                 files_report.append({
@@ -86,10 +112,20 @@ def process_batch(source_type, source_value):
                 })
 
                 summary["total_files"] += 1
-                if "loc" in metrics and isinstance(metrics["loc"], int):
-                    summary["total_loc"] += metrics["loc"]
                 languages.add(language)
 
+                # --- 4. Accumulate numeric metrics safely ---
+                metrics_data = metrics.get("metrics", {})
+                for key, summary_key in numeric_keys.items():
+                    value = metrics_data.get(key, 0)
+                    if isinstance(value, int):
+                        summary[summary_key] += value
+
+                # --- Collect all suggestions ---
+                if "suggestions" in metrics and isinstance(metrics["suggestions"], list):
+                    all_suggestions.extend(metrics["suggestions"])
+
+        # --- 5. Build final report ---
         report = {
             "repo": {
                 "source": source_type,
@@ -99,8 +135,10 @@ def process_batch(source_type, source_value):
             },
             "files": files_report,
             "summary": summary,
+            "suggestions_overall": all_suggestions,
             "generated_at": datetime.utcnow().isoformat() + "Z"
         }
+
         return report, 200
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
