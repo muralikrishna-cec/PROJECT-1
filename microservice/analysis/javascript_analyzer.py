@@ -27,13 +27,23 @@ def analyze_javascript(code: str):
 
     def add_node(label, ntype="statement", line=-1):
         node_id = f"n{next(node_counter)}"
-        nodes.append({"id": node_id, "type": ntype, "label": safe_label(label), "line": line})
+        nodes.append({
+            "id": node_id,
+            "type": ntype,
+            "label": safe_label(label),
+            "line": line
+        })
         return node_id
 
     def get_expr_label(expr):
         etype = expr.get("type")
-        if etype == "Identifier": return expr.get("name", "var")
-        if etype == "Literal": return str(expr.get("value"))
+        if etype == "Identifier":
+            return expr.get("name", "var")
+        if etype == "Literal":
+            val = expr.get("value")
+            if isinstance(val, str):
+                return f'"{val}"'   # keep string quotes
+            return str(val)
         if etype == "BinaryExpression":
             left = get_expr_label(expr.get("left", {}))
             right = get_expr_label(expr.get("right", {}))
@@ -74,27 +84,29 @@ def analyze_javascript(code: str):
             line = stmt.get("loc", {}).get("start", {}).get("line", -1)
             curr_id = None
 
+            # Skip EmptyStatement
+            if stype == "EmptyStatement":
+                continue
+
             if stype == "IfStatement":
                 cond_label = get_expr_label(stmt.get("test", {}))
                 curr_id = add_node(f"🔀 If ({cond_label})", "decision", line)
                 edges.append({"from": prev_id, "to": curr_id})
                 metrics["cyclomatic_complexity"] += 1
 
+                # Consequent
                 cons_body = stmt.get("consequent", {}).get("body", []) \
-                            if stmt.get("consequent", {}).get("type") == "BlockStatement" else [stmt.get("consequent")]
-                last_true = process_block(cons_body, curr_id, depth+1)
+                    if stmt.get("consequent", {}).get("type") == "BlockStatement" \
+                    else [stmt.get("consequent")]
+                process_block(cons_body, curr_id, depth+1)
 
+                # Alternate
                 alt = stmt.get("alternate")
                 if alt:
                     alt_body = alt.get("body", []) if alt.get("type") == "BlockStatement" else [alt]
-                    last_false = process_block(alt_body, curr_id, depth+1)
-                    merge_id = add_node("Merge", "merge")
-                    edges.append({"from": last_true, "to": merge_id})
-                    edges.append({"from": last_false, "to": merge_id})
-                    prev_id = merge_id
-                else:
-                    prev_id = last_true
+                    process_block(alt_body, curr_id, depth+1)
 
+                prev_id = curr_id
                 report_lines.append(f"If Condition: {cond_label}, Line: {line}")
 
             elif stype in ["ForStatement", "WhileStatement", "DoWhileStatement", "ForInStatement", "ForOfStatement"]:
@@ -103,8 +115,7 @@ def analyze_javascript(code: str):
                 edges.append({"from": prev_id, "to": curr_id})
                 metrics["loops"] += 1
                 body = stmt.get("body", {}).get("body", []) if stmt.get("body", {}).get("type") == "BlockStatement" else [stmt.get("body")]
-                last_in_loop = process_block(body, curr_id, depth+1)
-                edges.append({"from": last_in_loop, "to": curr_id, "condition": "iterates"})
+                process_block(body, curr_id, depth+1)
                 prev_id = curr_id
                 report_lines.append(f"Loop: {loop_label}, Line: {line}")
 
@@ -114,7 +125,8 @@ def analyze_javascript(code: str):
                 curr_id = add_node(f"🔧 Function: {fname}", "function", line)
                 edges.append({"from": prev_id, "to": curr_id})
                 body = stmt.get("body", {}).get("body", [])
-                prev_id = process_block(body, curr_id, depth+1)
+                process_block(body, curr_id, depth+1)
+                prev_id = curr_id
                 report_lines.append(f"Function: {fname}, Params: {len(stmt.get('params', []))}, Line: {line}")
 
             elif stype == "ClassDeclaration":
@@ -123,26 +135,33 @@ def analyze_javascript(code: str):
                 curr_id = add_node(f"📦 Class: {cname}", "class", line)
                 edges.append({"from": prev_id, "to": curr_id})
                 body = stmt.get("body", {}).get("body", [])
-                prev_id = process_block(body, curr_id, depth+1)
+                process_block(body, curr_id, depth+1)
+                prev_id = curr_id
                 report_lines.append(f"\nClass: {cname}\n")
 
             elif stype == "ReturnStatement":
                 metrics["returns"] += 1
-                curr_id = add_node(f"🔹 Return: {get_expr_label(stmt.get('argument', {}))}", "return", line)
+                ret_label = get_expr_label(stmt.get("argument", {}))
+                curr_id = add_node(f"🔹 Return: {ret_label}", "return", line)
                 edges.append({"from": prev_id, "to": curr_id})
                 prev_id = curr_id
 
-            elif stype in ["VariableDeclaration", "ExpressionStatement"]:
-                if stype == "VariableDeclaration":
-                    for decl in stmt.get("declarations", []):
-                        metrics["assignments"] += 1
-                        curr_id = add_node(f"🔸 Assign: {get_expr_label(decl)}", "assign", line)
-                        edges.append({"from": prev_id, "to": curr_id})
-                        prev_id = curr_id
-                else:
-                    curr_id = add_node(f"🔸 {stype}", "statement", line)
+            elif stype == "VariableDeclaration":
+                for decl in stmt.get("declarations", []):
+                    name = decl.get("id", {}).get("name", "var")
+                    init = get_expr_label(decl.get("init", {})) if decl.get("init") else "undefined"
+                    metrics["assignments"] += 1
+                    curr_id = add_node(f"🔸 Assign: {name} = {init}", "assign", line)
                     edges.append({"from": prev_id, "to": curr_id})
                     prev_id = curr_id
+
+            elif stype == "ExpressionStatement":
+                expr = stmt.get("expression", {})
+                expr_label = get_expr_label(expr)
+                curr_id = add_node(f"🔸 Expr: {expr_label}", "statement", line)
+                edges.append({"from": prev_id, "to": curr_id})
+                prev_id = curr_id
+
             else:
                 curr_id = add_node(f"🔸 {stype}", "other", line)
                 edges.append({"from": prev_id, "to": curr_id})
