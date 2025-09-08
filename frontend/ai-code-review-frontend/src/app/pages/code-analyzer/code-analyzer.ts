@@ -109,31 +109,27 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
     }
   }
 
- submitCode(): void {
+submitCode(): void {
   if (!this.monacoEditorInstance) return;
   const code = this.monacoEditorInstance.getValue();
   const payload = { language: this.selectedLang, code };
 
   this.http.post<AnalysisResponse>('http://localhost:8080/api/analyze', payload).subscribe({
     next: (res) => {
-      // update data
+      // save raw output
       this.outputRaw = res;
       this.populateMetricsAndReport(res);
 
-      // reset graph
+      // reset graph state
       this.graphRendered = false;
       this.stepIndex = 0;
 
       // clear old SVG completely
-      const container = d3.select('#graph-container');
-      container.selectAll('*').remove();
+      d3.select('#graph-container').selectAll('*').remove();
 
-      // force Angular update
-      this.cdr.detectChanges();
-
-      // switch tab
-      this.activeTab = res.nodes && res.edges ? 'visualization' : 'analysis';
-      this.cdr.detectChanges();
+      // force Angular to render analysis report first
+      this.activeTab = 'analysis';
+      this.cdr.detectChanges();   // ensure report shows up
     },
     error: (err) => {
       console.error('Backend error:', err);
@@ -142,6 +138,7 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
     }
   });
 }
+
 
   private populateMetricsAndReport(res: AnalysisResponse) {
     const m = res.metrics || {};
@@ -159,10 +156,21 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
   }
 
   setActiveTab(tab: 'analysis' | 'visualization' | 'suggestions') {
-    this.activeTab = tab;
-    this.graphRendered = false;
-    this.cdr.detectChanges();
+  this.activeTab = tab;
+  this.cdr.detectChanges();
+
+  if (tab === 'visualization' && this.outputRaw?.nodes && this.outputRaw?.edges) {
+    // clear old graph
+    d3.select('#graph-container').selectAll('*').remove();
+
+    // render fresh graph
+    this.renderAndPrepareGraph(this.outputRaw.nodes, this.outputRaw.edges);
+    this.graphRendered = true;
+
+    this.cdr.detectChanges();  // make sure visualization loads properly
   }
+}
+
 
   private renderAndPrepareGraph(nodes: GraphNode[], edges: GraphEdge[]) {
     this.renderD3Graph(nodes, edges);
