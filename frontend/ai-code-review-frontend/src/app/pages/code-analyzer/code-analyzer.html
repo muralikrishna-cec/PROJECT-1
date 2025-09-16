@@ -114,8 +114,8 @@
 
 
 <!-- Visualization -->
-<div *ngIf="activeTab === 'visualization'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-  <div class="flex items-center justify-between mb-4">
+<div *ngIf="activeTab === 'visualization'" class="w-full bg-gray-900 px-4 py-6">
+  <div class="flex items-center justify-between mb-4 px-2">
     <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
     <div class="flex items-center gap-2">
       <label class="text-sm text-gray-300">Speed (ms):</label>
@@ -126,35 +126,47 @@
     </div>
   </div>
 
-  <!-- Scrollable container -->
-  <div class="bg-gray-900 p-4 rounded overflow-auto text-gray-100 text-sm" style="height: 500px; width: 100%;">
-    <div id="graph-container" class="min-w-[1200px] min-h-[800px] p-6"></div>
+  <!-- Full-size scrollable container -->
+  <div class="overflow-auto" style="padding-bottom: 40px;">
+    <div id="graph-container" 
+         style="display: inline-block; min-width: 2000px; min-height: 1000px; padding-bottom: 200px;">
+      <!-- Your D3 / Mermaid diagram goes here -->
+    </div>
   </div>
 
-  <p class="text-gray-400 text-xs mt-3">
-    Tip: Nodes and edges are highlighted in DFS order.
+  <p class="text-gray-400 text-xs mt-2 px-2">
+    Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
   </p>
 </div>
 
 
 
-      <!-- AI Suggestions -->
-      <div *ngIf="activeTab === 'suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-2xl font-bold text-green-400">🤖 AI Suggestions</h3>
-          <button (click)="fetchAISuggestions()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm">
-            💡 Get Suggestions
-          </button>
-        </div>
-        <div *ngIf="aiSuggestions && aiSuggestions.length > 0" class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto text-gray-100">
-          <ng-container *ngFor="let sug of aiSuggestions">
-            <p>✅ {{ sug }}</p>
-          </ng-container>
-        </div>
-        <div *ngIf="!aiSuggestions || aiSuggestions.length === 0" class="text-gray-400 text-sm">
-          Click the button above to fetch AI suggestions.
-        </div>
-      </div>
+
+
+
+<!-- AI Suggestions -->
+<div *ngIf="activeTab === 'suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-2xl font-bold text-green-400">🤖 AI Suggestions</h3>
+    <button (click)="fetchAISuggestionsTyping()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm">
+      💡 Get Suggestions
+    </button>
+  </div>
+
+  <div class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto text-gray-100 min-h-[100px]">
+    <ng-container *ngFor="let line of displayedSuggestions">
+      <p>{{ line }}</p>
+    </ng-container>
+    <span *ngIf="isTyping" class="text-green-400">|</span> <!-- cursor -->
+  </div>
+
+  <div *ngIf="!aiSuggestions || aiSuggestions.length === 0" class="text-gray-400 text-sm mt-2">
+    Click the button above to fetch AI suggestions.
+  </div>
+</div>
+
+
+
     </div>
   </div>
 </div>

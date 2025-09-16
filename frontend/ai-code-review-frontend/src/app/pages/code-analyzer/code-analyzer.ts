@@ -49,6 +49,12 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
   outputRaw: AnalysisResponse | null = null;
   aiSuggestions: string[] = [];
 
+  displayedSuggestions: string[] = [];
+  isTyping = false;
+  private typingInterval: any = null;
+
+
+
   private monacoEditorInstance!: monaco.editor.IStandaloneCodeEditor;
   private svg!: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
   private nodeElements!: d3.Selection<SVGPathElement, d3.HierarchyNode<GraphNode>, SVGGElement, unknown>;
@@ -109,10 +115,23 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
     }
   }
 
+
+
+
 submitCode(): void {
   if (!this.monacoEditorInstance) return;
   const code = this.monacoEditorInstance.getValue();
   const payload = { language: this.selectedLang, code };
+
+  // ✅ Clear previous AI suggestions and stop typing
+  this.displayedSuggestions = [];
+  this.aiSuggestions = [];
+  this.isTyping = false;
+  if (this.typingInterval) {
+    clearInterval(this.typingInterval);
+    this.typingInterval = null;
+  }
+  this.cdr.detectChanges();
 
   this.http.post<AnalysisResponse>('http://localhost:8080/api/analyze', payload).subscribe({
     next: (res) => {
@@ -138,6 +157,9 @@ submitCode(): void {
     }
   });
 }
+
+
+
 
 
   private populateMetricsAndReport(res: AnalysisResponse) {
@@ -409,6 +431,61 @@ toArray(input: string | string[] | undefined): string[] {
   if (!input) return [];
   return Array.isArray(input) ? input : [input];
 }
+
+
+
+async fetchAISuggestionsTyping() {
+  if (!this.monacoEditorInstance) return;
+
+  const code = this.monacoEditorInstance.getValue();
+  const payload = { language: this.selectedLang, code };
+
+  this.isTyping = true;
+  this.displayedSuggestions = [];
+  this.aiSuggestions = [];
+
+  try {
+    const res: any = await this.http.post<any>('http://localhost:8080/api/ai-suggest', payload).toPromise();
+    const fullText: string = res.response || "❌ No AI suggestions available.";
+
+    // Split into lines by newline characters
+    this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
+
+    for (const line of this.aiSuggestions) {
+      await this.typeLine(line);
+    }
+  } catch (err) {
+    console.error('AI Suggestions error:', err);
+    this.displayedSuggestions = ["❌ Failed to fetch AI suggestions."];
+  } finally {
+    this.isTyping = false;
+    this.cdr.detectChanges();
+  }
+}
+
+
+typeLine(line: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let i = 0;
+    this.displayedSuggestions.push(''); // Start a new line
+
+    this.typingInterval = setInterval(() => {
+      this.displayedSuggestions[this.displayedSuggestions.length - 1] += line[i];
+      i++;
+      this.cdr.detectChanges();
+
+      if (i >= line.length) {
+        clearInterval(this.typingInterval);
+        this.typingInterval = null;
+        setTimeout(() => resolve(), 150); // small pause between lines
+      }
+    }, 30);
+  });
+}
+
+
+
+
 
 
 }
