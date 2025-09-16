@@ -5,7 +5,7 @@
     <div class="text-center space-y-4">
       <h2 class="text-4xl md:text-5xl font-extrabold text-green-400">🧪 AI Code Analyzer</h2>
       <p class="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
-        Paste your code, get metrics, a static report, animated flowchart, and AI suggestions.
+        Paste your code, get metrics, a static report, animated flowchart, AI suggestions, and viva practice.
       </p>
     </div>
 
@@ -31,6 +31,11 @@
         <button (click)="submitCode()"
                 class="w-full sm:w-auto bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-semibold transition">
           🚀 Submit for Analysis
+        </button>
+
+        <button (click)="fetchVivaQuestions()"
+                class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-semibold transition">
+          🎤 Start Viva
         </button>
       </div>
     </div>
@@ -67,111 +72,114 @@
     <!-- Tabs -->
     <div>
       <div class="flex gap-4 mb-4">
-        <button (click)="setActiveTab('analysis')"
-                [ngClass]="{ 'bg-green-600': activeTab === 'analysis' }"
+        <button (click)="setActiveTab('analysis')" [ngClass]="{'bg-green-600': activeTab==='analysis'}"
                 class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           📘 Static Analysis
         </button>
-        <button (click)="setActiveTab('visualization')"
-                [ngClass]="{ 'bg-green-600': activeTab === 'visualization' }"
+        <button (click)="setActiveTab('visualization')" [ngClass]="{'bg-green-600': activeTab==='visualization'}"
                 class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           📈 Visualization
         </button>
-        <button (click)="setActiveTab('suggestions')"
-                [ngClass]="{ 'bg-green-600': activeTab === 'suggestions' }"
+        <button (click)="setActiveTab('suggestions')" [ngClass]="{'bg-green-600': activeTab==='suggestions'}"
                 class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
           🤖 AI Suggestions
         </button>
+        <button (click)="setActiveTab('viva')" [ngClass]="{'bg-purple-600': activeTab==='viva'}"
+                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-purple-500 transition">
+          🎤 Viva
+        </button>
       </div>
 
-<!-- Static Analysis Report -->
-<div *ngIf="activeTab === 'analysis'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-  <h3 class="text-2xl font-bold text-green-400 mb-6">📘 Static Analysis Report</h3>
+      <!-- Static Analysis Report -->
+      <div *ngIf="activeTab==='analysis'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+        <h3 class="text-2xl font-bold text-green-400 mb-6">📘 Static Analysis Report</h3>
+        <pre class="bg-gray-900 text-gray-100 p-4 rounded text-sm font-mono overflow-x-auto">
+          <code [innerHTML]="highlightReport(outputRaw?.report || '')"></code>
+        </pre>
 
-  <!-- Report Content -->
-  <div class="mb-6">
-    <pre class="bg-gray-900 text-gray-100 p-4 rounded text-sm font-mono overflow-x-auto">
-      <code [innerHTML]="highlightReport(outputRaw?.report || '')"></code>
-    </pre>
+        <div *ngIf="outputRaw?.suggestions?.length" class="mb-6">
+          <h4 class="text-base font-semibold text-red-400 mb-2">💡 Suggestions:</h4>
+          <ul class="list-disc list-inside text-red-300">
+            <li *ngFor="let s of toArray(outputRaw?.suggestions)" [innerHTML]="highlightReport(s)"></li>
+          </ul>
+        </div>
+
+        <button (click)="copyReport()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
+          📋 Copy Full Report
+        </button>
+      </div>
+
+      <!-- Visualization -->
+      <div *ngIf="activeTab==='visualization'" class="w-full bg-gray-900 px-4 py-6">
+        <div class="flex items-center justify-between mb-4 px-2">
+          <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-300">Speed (ms):</label>
+            <input type="number" [(ngModel)]="speedMs" class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
+            <button (click)="playD3()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
+            <button (click)="pauseD3()" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
+            <button (click)="resetD3()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
+          </div>
+        </div>
+        <div class="overflow-auto" style="padding-bottom:40px;">
+          <div id="graph-container" style="min-width:2000px; min-height:1000px;"></div>
+        </div>
+        <p class="text-gray-400 text-xs mt-2 px-2">
+          Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
+        </p>
+      </div>
+
+      <!-- AI Suggestions -->
+      <div *ngIf="activeTab==='suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-2xl font-bold text-green-400">🤖 AI Suggestions</h3>
+          <button (click)="fetchAISuggestionsTyping()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm">
+            💡 Get Suggestions
+          </button>
+        </div>
+        <div class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto text-gray-100 min-h-[100px]">
+          <ng-container *ngFor="let line of displayedSuggestions">
+            <p>{{ line }}</p>
+          </ng-container>
+          <span *ngIf="isTyping" class="text-green-400">|</span>
+        </div>
+      </div>
+
+      <!-- Viva Section -->
+      <div *ngIf="activeTab==='viva'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+        <h3 class="text-2xl font-bold text-purple-400 mb-6">🎤 Viva Practice</h3>
+        <div *ngIf="vivaLoading" class="text-gray-300 mb-4">⏳ Fetching questions...</div>
+
+<div *ngIf="!vivaLoading && vivaQuestions.length > 0">
+  <div *ngFor="let q of vivaQuestions; let i = index" class="mb-4">
+    <p class="font-semibold">Q{{ i+1 }}: {{ q }}</p>
+    <textarea [(ngModel)]="vivaAnswers[i]"
+              rows="2"
+              class="w-full p-2 rounded bg-gray-900 border border-gray-700 resize-none overflow-auto text-white"
+              placeholder="Type your answer here..."></textarea>
   </div>
 
-  <!-- Suggestions -->
- <!-- Suggestions -->
-<div *ngIf="outputRaw?.suggestions?.length" class="mb-6">
-  <h4 class="text-base font-semibold text-red-400 mb-2">💡 Suggestions:</h4>
-  <ul class="list-disc list-inside text-red-300">
-    <!-- Ensure it's always an array -->
-    <li *ngFor="let s of toArray(outputRaw?.suggestions)" [innerHTML]="highlightReport(s)"></li>
-  </ul>
-</div>
-
-
-  <button (click)="copyReport()" class="mt-4 text-green-400 hover:underline text-sm font-medium">
-    📋 Copy Full Report
+  <button (click)="submitVivaAnswers()"
+          [disabled]="vivaLoading || vivaSubmitted"
+          class="mt-4 bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded font-semibold">
+    {{ vivaLoading ? 'Submitting...' : 'Submit Answers' }}
   </button>
 </div>
 
-
-
-<!-- Visualization -->
-<div *ngIf="activeTab === 'visualization'" class="w-full bg-gray-900 px-4 py-6">
-  <div class="flex items-center justify-between mb-4 px-2">
-    <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
-    <div class="flex items-center gap-2">
-      <label class="text-sm text-gray-300">Speed (ms):</label>
-      <input type="number" [(ngModel)]="speedMs" class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
-      <button (click)="playD3()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
-      <button (click)="pauseD3()" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
-      <button (click)="resetD3()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
-    </div>
-  </div>
-
-  <!-- Full-size scrollable container -->
-  <div class="overflow-auto" style="padding-bottom: 40px;">
-    <div id="graph-container" 
-         style="display: inline-block; min-width: 2000px; min-height: 1000px; padding-bottom: 200px;">
-      <!-- Your D3 / Mermaid diagram goes here -->
-    </div>
-  </div>
-
-  <p class="text-gray-400 text-xs mt-2 px-2">
-    Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
-  </p>
+<div *ngIf="!vivaLoading && vivaQuestions.length === 0" class="text-gray-400">
+  No viva questions available.
 </div>
 
-
-
-
-
-
-<!-- AI Suggestions -->
-<div *ngIf="activeTab === 'suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-  <div class="flex justify-between items-center mb-4">
-    <h3 class="text-2xl font-bold text-green-400">🤖 AI Suggestions</h3>
-    <button (click)="fetchAISuggestionsTyping()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm">
-      💡 Get Suggestions
-    </button>
-  </div>
-
-  <div class="bg-gray-900 p-4 rounded text-sm font-mono whitespace-pre-wrap overflow-x-auto text-gray-100 min-h-[100px]">
-    <ng-container *ngFor="let line of displayedSuggestions">
-      <p>{{ line }}</p>
-    </ng-container>
-    <span *ngIf="isTyping" class="text-green-400">|</span> <!-- cursor -->
-  </div>
-
-  <div *ngIf="!aiSuggestions || aiSuggestions.length === 0" class="text-gray-400 text-sm mt-2">
-    Click the button above to fetch AI suggestions.
-  </div>
-</div>
-
-
+        <div *ngIf="vivaSubmitted" class="mt-6 p-4 bg-gray-900 rounded border border-gray-700 text-white">
+          <h4 class="font-bold mb-2 text-purple-400">📊 Result</h4>
+          <p [innerHTML]="vivaResult"></p>
+        </div>
+      </div>
 
     </div>
   </div>
 </div>
 
-<!-- Animation styles -->
 <style>
   .glow-node > rect, .glow-node > polygon, .glow-node > path {
     stroke: #22c55e !important;
