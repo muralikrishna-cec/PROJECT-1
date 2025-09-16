@@ -10,6 +10,8 @@ from plagiarism.checker import perform_plagiarism_check
 
 from batch.processor import analyze_file,process_batch
 
+from viva.viva_service import generate_viva_questions
+
 app = Flask(__name__)
 CORS(app)
 
@@ -69,6 +71,27 @@ def batch():
         return jsonify({"error": "Provide zip file or github_url"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500       
+
+
+
+@app.route("/viva", methods=["POST"])
+def viva():
+    data = request.get_json()
+    code = data.get("code", "")
+    language = data.get("language", "").lower()
+
+    if not code or not language:
+        return jsonify({"error": "Missing code or language"}), 400
+
+    if language not in ["python", "javascript", "java", "c", "cpp", "c++"]:
+        return jsonify({"error": f"Unsupported language: {language}"}), 400
+
+    try:
+        result = generate_viva_questions(code, language, count=10)
+        return jsonify({"questions": result}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
