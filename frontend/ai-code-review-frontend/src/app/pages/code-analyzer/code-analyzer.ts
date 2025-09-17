@@ -50,12 +50,15 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
   outputRaw: AnalysisResponse | null = null;
 
 
-  // Viva-related properties
+// Viva-related properties
 vivaLoading = false;                   // true while fetching questions
 vivaSubmitted = false;                 // true after submitting answers
-vivaQuestions: string[] = [];          // fetched questions
-vivaAnswers: string[] = [];            // user's answers
-vivaResult = '';                        // result/feedback HTML
+vivaQuestions: { question: string; options: string[]; answer: string; }[] = [];
+vivaAnswers: string[] = [];            // user's selected options
+vivaResult = '';                       // HTML result
+totalMarks = 0;                        // total marks possible
+marksPerQuestion = 1;                  // default marks per question
+
 
   aiSuggestions: string[] = [];
   displayedSuggestions: string[] = [];
@@ -430,15 +433,14 @@ fetchVivaQuestions() {
   this.vivaQuestions = [];
   this.vivaAnswers = [];
 
-  const payload = {
-    code: this.monacoEditorInstance.getValue(),
-    language: this.selectedLang
-  };
+  const payload = { code: this.monacoEditorInstance.getValue(), language: this.selectedLang };
 
   this.http.post<any>('http://localhost:8000/viva', payload).subscribe({
     next: res => {
-      // Access nested questions array
-      this.vivaQuestions = res.questions?.questions || [];
+      // Use the MCQ structure
+      this.vivaQuestions = res.questions || [];
+      this.marksPerQuestion = res.marks ? res.marks / this.vivaQuestions.length : 1;
+      this.totalMarks = res.marks || this.vivaQuestions.length;
       this.vivaAnswers = new Array(this.vivaQuestions.length).fill('');
       this.vivaLoading = false;
       this.cdr.detectChanges();
@@ -454,27 +456,34 @@ fetchVivaQuestions() {
 
 
 
-// Example: submitting viva answers
+
 submitVivaAnswers() {
   if (!this.vivaAnswers.length) return;
-  this.vivaLoading = true;
 
-  const payload = { language: this.selectedLang, answers: this.vivaAnswers };
-  this.http.post<{ result: string }>('http://localhost:8080/api/viva-submit', payload).subscribe({
-    next: res => {
-      this.vivaResult = res.result || 'No result returned.';
-      this.vivaSubmitted = true;
-      this.vivaLoading = false;
-      this.cdr.detectChanges();
-    },
-    error: err => {
-      console.error(err);
-      this.vivaResult = '❌ Failed to submit answers.';
-      this.vivaSubmitted = true;
-      this.vivaLoading = false;
-      this.cdr.detectChanges();
-    }
+  this.vivaLoading = true;
+  let score = 0;
+  let resultHtml = '<ol class="list-decimal pl-5">';
+
+  this.vivaQuestions.forEach((q, i) => {
+    const userAnswer = this.vivaAnswers[i];
+    const correct = userAnswer === q.answer;
+    if (correct) score += this.marksPerQuestion;
+
+    resultHtml += `<li class="mb-2">
+      <p class="font-semibold">${q.question}</p>
+      <p>Your answer: <span class="${correct ? 'text-green-400' : 'text-red-400'}">${userAnswer || 'No answer'}</span></p>
+      <p>Correct answer: <span class="text-green-300">${q.answer}</span></p>
+    </li>`;
   });
+
+  resultHtml += `</ol>`;
+  resultHtml += `<p class="mt-4 font-bold">Score: <span class="text-yellow-400">${score} / ${this.totalMarks}</span></p>`;
+
+  this.vivaResult = resultHtml;
+  this.vivaSubmitted = true;
+  this.vivaLoading = false;
+  this.cdr.detectChanges();
 }
+
 
 }

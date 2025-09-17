@@ -88,7 +88,7 @@ def viva():
 
     try:
         result = generate_viva_questions(code, language, count=10)
-        return jsonify({"questions": result}), 200
+        return jsonify(result)   # ✅ Return marks + questions directly
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

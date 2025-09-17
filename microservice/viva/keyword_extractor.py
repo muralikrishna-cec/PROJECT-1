@@ -47,11 +47,10 @@ def extract_keywords(code: str, language: str):
             "switch case": r"\bswitch\s*\(",
             "exception handling": r"\b(try|catch|throw)\b",
             "return statement": r"\breturn\b",
-            "do-while": r"\bdo\s*\{"
+            "do-while loop": r"\bdo\s*\{"
         }
         for kw, pattern in patterns.items():
             if re.search(pattern, code):
                 keywords.add(kw)
 
-    # --- Normalize output ---
     return list(keywords) if keywords else ["general programming concepts"]

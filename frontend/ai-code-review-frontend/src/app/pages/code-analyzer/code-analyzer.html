@@ -145,36 +145,45 @@
         </div>
       </div>
 
-      <!-- Viva Section -->
-      <div *ngIf="activeTab==='viva'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-        <h3 class="text-2xl font-bold text-purple-400 mb-6">🎤 Viva Practice</h3>
-        <div *ngIf="vivaLoading" class="text-gray-300 mb-4">⏳ Fetching questions...</div>
+     <!-- Viva Section (MCQ Version) -->
+<div *ngIf="activeTab==='viva'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+  <h3 class="text-2xl font-bold text-purple-400 mb-6">🎤 Viva Practice (MCQs)</h3>
 
-<div *ngIf="!vivaLoading && vivaQuestions.length > 0">
-  <div *ngFor="let q of vivaQuestions; let i = index" class="mb-4">
-    <p class="font-semibold">Q{{ i+1 }}: {{ q }}</p>
-    <textarea [(ngModel)]="vivaAnswers[i]"
-              rows="2"
-              class="w-full p-2 rounded bg-gray-900 border border-gray-700 resize-none overflow-auto text-white"
-              placeholder="Type your answer here..."></textarea>
+  <div *ngIf="vivaLoading" class="text-gray-300 mb-4">⏳ Fetching questions...</div>
+
+  <div *ngIf="!vivaLoading && vivaQuestions.length > 0">
+    <div *ngFor="let q of vivaQuestions; let i = index" class="mb-6 p-4 bg-gray-900 rounded border border-gray-700">
+      <p class="font-semibold text-white mb-2">Q{{ i+1 }}: {{ q.question }}</p>
+
+      <div class="flex flex-col gap-2">
+        <label *ngFor="let option of q.options" class="flex items-center gap-2 text-gray-100 cursor-pointer">
+          <input type="radio" 
+                 name="viva{{i}}" 
+                 [(ngModel)]="vivaAnswers[i]" 
+                 [value]="option" 
+                 class="form-radio text-purple-500" />
+          {{ option }}
+        </label>
+      </div>
+    </div>
+
+    <button (click)="submitVivaAnswers()"
+            [disabled]="vivaLoading || vivaSubmitted"
+            class="mt-4 bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded font-semibold">
+      {{ vivaLoading ? 'Submitting...' : 'Submit Answers' }}
+    </button>
   </div>
 
-  <button (click)="submitVivaAnswers()"
-          [disabled]="vivaLoading || vivaSubmitted"
-          class="mt-4 bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded font-semibold">
-    {{ vivaLoading ? 'Submitting...' : 'Submit Answers' }}
-  </button>
+  <div *ngIf="!vivaLoading && vivaQuestions.length === 0" class="text-gray-400">
+    No viva questions available.
+  </div>
+
+  <div *ngIf="vivaSubmitted" class="mt-6 p-4 bg-gray-900 rounded border border-gray-700 text-white">
+    <h4 class="font-bold mb-2 text-purple-400">📊 Result</h4>
+    <p [innerHTML]="vivaResult"></p>
+  </div>
 </div>
 
-<div *ngIf="!vivaLoading && vivaQuestions.length === 0" class="text-gray-400">
-  No viva questions available.
-</div>
-
-        <div *ngIf="vivaSubmitted" class="mt-6 p-4 bg-gray-900 rounded border border-gray-700 text-white">
-          <h4 class="font-bold mb-2 text-purple-400">📊 Result</h4>
-          <p [innerHTML]="vivaResult"></p>
-        </div>
-      </div>
 
     </div>
   </div>
