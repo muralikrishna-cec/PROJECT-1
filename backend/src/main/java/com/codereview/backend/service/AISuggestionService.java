@@ -1,5 +1,7 @@
 package com.codereview.backend.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -10,29 +12,79 @@ import java.util.Map;
 @Service
 public class AISuggestionService {
 
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     public String getAISuggestion(String code, String language) {
         try {
-            String url = "http://localhost:5000/chat"; // !
+            // Gemini API URL
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDIJYia8LBXkP94LZ8wkmaBtGCzTXmgO-Y";
 
-            RestTemplate restTemplate = new RestTemplate();
-
-            Map<String, String> request = new HashMap<>();
-           // request.put("prompt", "You are a senior software engineer. Analyze the following " + language + " code for errors, bad practices, and improvements. Give code suggestions and explain clearly like a mentor.");
-            request.put("prompt",
-                    "You are a senior software engineer and code reviewer. Your job is to review the following " + language + " code carefully. " +
-                            "Identify errors, bad practices, and improvements. Explain everything in simple language like you're mentoring a beginner. " +
-                            "Give suggestions clearly with code blocks and explanations. If applicable, rewrite the improved version of the code at the end.\n\n" +
-                            "Respond in the following format:\n" +
-                            "1. ✅ Errors (if any)\n" +
+            // ✅ Build prompt
+            // ✅ Build prompt
+            String prompt =
+                    "You are a senior software engineer and code reviewer. " +
+                            "Review the following " + language + " code carefully. " +
+                            "If the input is not related to programming or code review, simply respond with: '❌ Cannot process non-code input'.\n\n" +
+                            "When valid code is given, respond in a **very concise and effective manner**, strictly using points only:\n" +
+                            "1. ✅ Errors (if any) OR the Output of the code\n" +
                             "2. ⚠️ Bad Practices\n" +
-                            "3. 💡 Suggestions for Improvement\n" +
-                            "4. ✨ Improved Code (in a ```" + language + "``` code block)\n\n" +
-                            "Now analyze the following code:\n\n" +
-                            code
+                            "3. 💡 Suggestions for Improvement\n\n" +
+                            "Code:\n" + code;
+
+
+            // ✅ Build request body
+            Map<String, Object> request = new HashMap<>();
+            Map<String, Object> part = new HashMap<>();
+            part.put("text", prompt);
+
+            Map<String, Object> content = new HashMap<>();
+            content.put("parts", new Object[]{part});
+
+            request.put("contents", new Object[]{content});
+
+            String requestJson = objectMapper.writeValueAsString(request);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
             );
 
-           // request.put("code", code);
-            // request.put("language", language);
+            // ✅ Extract only the text response
+            JsonNode root = objectMapper.readTree(response.getBody());
+            String text = root.path("candidates")
+                    .get(0)
+                    .path("content")
+                    .path("parts")
+                    .get(0)
+                    .path("text")
+                    .asText();
+
+            return text.isEmpty() ? "⚠️ Gemini gave no response." : text;
+
+        } catch (Exception e) {
+            // ✅ Backup: call TinyLLaMA if Gemini fails
+            return "⚠️ Gemini failed, falling back to TinyLLaMA...\n\n" + callTinyLLaMA(code, language);
+        }
+    }
+
+    private String callTinyLLaMA(String code, String language) {
+        try {
+            String url = "http://localhost:5000/chat";
+
+            Map<String, String> request = new HashMap<>();
+            request.put("prompt",
+                    "You are a senior software engineer. Analyze this " + language + " code and provide:\n"
+                            + "1. ✅ Errors\n2. ⚠️ Bad Practices\n3. 💡 Suggestions\n\n"
+                            + code
+            );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -48,7 +100,7 @@ public class AISuggestionService {
 
             return response.getBody();
         } catch (Exception e) {
-            return "⚠️ Error talking to TinyLLaMA: " + e.getMessage();
+            return "⚠️ Both Gemini and TinyLLaMA failed: " + e.getMessage();
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -70,10 +71,15 @@ public class CodeAnalysisController {
     }
 
     @PostMapping("/ai-suggest")
-    public ResponseEntity<String> getAISuggestion(@RequestBody AISuggestionRequest request) {
+    public ResponseEntity<Map<String, String>> getAISuggestion(@RequestBody AISuggestionRequest request) {
         String result = aiSuggestionService.getAISuggestion(request.getCode(), request.getLanguage());
-        return ResponseEntity.ok(result);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("response", result); // ✅ wrap in JSON
+
+        return ResponseEntity.ok(response);
     }
+
 
     /**
      * Case 1: Analyze repository from GitHub link

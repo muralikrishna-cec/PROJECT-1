@@ -345,28 +345,33 @@ submitCode(): void {
   }
 
   /* ----------------- AI Suggestions ----------------- */
-  async fetchAISuggestionsTyping() {
-    if (!this.monacoEditorInstance) return;
-    const code = this.monacoEditorInstance.getValue();
-    const payload = { language: this.selectedLang, code };
+// ⚡ Fetch + typing animation
+async fetchAISuggestionsTyping() {
+  if (!this.monacoEditorInstance) return;
+  const code = this.monacoEditorInstance.getValue();
+  const payload = { language: this.selectedLang, code };
 
-    this.isTyping = true;
-    this.displayedSuggestions = [];
-    this.aiSuggestions = [];
+  this.isTyping = true;
+  this.displayedSuggestions = [];
+  this.aiSuggestions = [];
 
-    try {
-      const res: any = await lastValueFrom(this.http.post<any>('http://localhost:8080/api/ai-suggest', payload));
-      const fullText: string = res.response || "❌ No AI suggestions available.";
-      this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
-      for (const line of this.aiSuggestions) await this.typeLine(line);
-    } catch (err) {
-      console.error('AI Suggestions error:', err);
-      this.displayedSuggestions = ["❌ Failed to fetch AI suggestions."];
-    } finally {
-      this.isTyping = false;
-      this.cdr.detectChanges();
+  try {
+    const res: any = await lastValueFrom(this.http.post<any>('http://localhost:8080/api/ai-suggest', payload));
+    const fullText: string = res.response || "❌ No AI suggestions available.";
+
+    this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
+    for (const line of this.aiSuggestions) {
+      await this.typeLine(line); // ✅ animate line by line
     }
+  } catch (err) {
+    console.error('AI Suggestions error:', err);
+    this.aiSuggestions = ["❌ Failed to fetch AI suggestions."];
+    this.displayedSuggestions = [...this.aiSuggestions];
+  } finally {
+    this.isTyping = false;
+    this.cdr.detectChanges();
   }
+}
 
   typeLine(line: string): Promise<void> {
     return new Promise<void>((resolve) => {
@@ -385,15 +390,25 @@ submitCode(): void {
     });
   }
 
-  fetchAISuggestions() {
-    if (!this.monacoEditorInstance) return;
-    const code = this.monacoEditorInstance.getValue();
-    const payload = { language: this.selectedLang, code };
-    this.http.post<any>('http://localhost:8080/api/ai-suggest', payload).subscribe({
-      next: (res) => { this.aiSuggestions = res.response ? [res.response] : []; this.cdr.detectChanges(); },
-      error: () => { this.aiSuggestions = ["❌ Failed to fetch AI suggestions."]; this.cdr.detectChanges(); }
-    });
-  }
+fetchAISuggestions() {
+  if (!this.monacoEditorInstance) return;
+  const code = this.monacoEditorInstance.getValue();
+  const payload = { language: this.selectedLang, code };
+
+  this.http.post<any>('http://localhost:8080/api/ai-suggest', payload).subscribe({
+    next: (res) => {
+      const fullText: string = res.response || "❌ No AI suggestions available.";
+      this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
+      this.displayedSuggestions = [...this.aiSuggestions]; // ✅ show instantly
+      this.cdr.detectChanges();
+    },
+    error: () => {
+      this.aiSuggestions = ["❌ Failed to fetch AI suggestions."];
+      this.displayedSuggestions = [...this.aiSuggestions];
+      this.cdr.detectChanges();
+    }
+  });
+}
 
   /* ----------------- Helpers ----------------- */
   getStrokeOffset(score: number) { const r = 45; return 2 * Math.PI * r - (score / 100) * 2 * Math.PI * r; }
@@ -432,28 +447,47 @@ fetchVivaQuestions() {
   this.vivaSubmitted = false;
   this.vivaQuestions = [];
   this.vivaAnswers = [];
+  this.totalMarks = 0;
+  this.marksPerQuestion = 0;
 
-  const payload = { code: this.monacoEditorInstance.getValue(), language: this.selectedLang };
+  const payload = {
+    code: this.monacoEditorInstance.getValue(),
+    language: this.selectedLang
+  };
 
   this.http.post<any>('http://localhost:8000/viva', payload).subscribe({
     next: res => {
-      // Use the MCQ structure
-      this.vivaQuestions = res.questions || [];
-      this.marksPerQuestion = res.marks ? res.marks / this.vivaQuestions.length : 1;
-      this.totalMarks = res.marks || this.vivaQuestions.length;
-      this.vivaAnswers = new Array(this.vivaQuestions.length).fill('');
+      if (res && res.questions && res.questions.length > 0) {
+        this.vivaQuestions = res.questions.map((q: any, index: number) => ({
+          index: index + 1,
+          question: q.question,
+          options: q.options || [],
+          answer: q.answer || ''
+        }));
+
+        this.totalMarks = res.marks || this.vivaQuestions.length;
+        this.marksPerQuestion = this.totalMarks / this.vivaQuestions.length;
+        this.vivaAnswers = new Array(this.vivaQuestions.length).fill('');
+      } else {
+        console.warn('No questions received from backend.');
+        this.vivaQuestions = [];
+        this.vivaAnswers = [];
+        this.totalMarks = 0;
+        this.marksPerQuestion = 0;
+      }
+
       this.vivaLoading = false;
       this.cdr.detectChanges();
     },
     error: err => {
       console.error('Viva fetch error:', err);
+      this.vivaQuestions = [];
+      this.vivaAnswers = [];
       this.vivaLoading = false;
       this.cdr.detectChanges();
     }
   });
 }
-
-
 
 
 

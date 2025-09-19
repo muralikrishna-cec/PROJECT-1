@@ -2,7 +2,7 @@ import re
 import ast
 
 def extract_keywords(code: str, language: str):
-    """Extract keywords/concepts from code for Python, JavaScript, Java, C, and C++."""
+    """Extract key concepts for Python, JavaScript, Java, C, and C++."""
     keywords = set()
     language = language.lower()
 
@@ -22,25 +22,22 @@ def extract_keywords(code: str, language: str):
                     keywords.add("if condition")
                 elif isinstance(node, ast.Try):
                     keywords.add("exception handling")
+                elif isinstance(node, ast.With):
+                    keywords.add("context manager")
                 elif isinstance(node, ast.Return):
                     keywords.add("return statement")
         except Exception:
-            # fallback to regex scan if AST parsing fails
-            if "def " in code:
-                keywords.add("function")
-            if "class " in code:
-                keywords.add("class")
-            if "for " in code:
-                keywords.add("for loop")
-            if "while " in code:
-                keywords.add("while loop")
-            if "if " in code:
-                keywords.add("if condition")
+            # regex fallback
+            if "def " in code: keywords.add("function")
+            if "class " in code: keywords.add("class")
+            if "for " in code: keywords.add("for loop")
+            if "while " in code: keywords.add("while loop")
+            if "if " in code: keywords.add("if condition")
 
     elif language in ["javascript", "java", "c", "cpp", "c++"]:
         patterns = {
-            "class": r"\bclass\b",
-            "function/method": r"\b(function|def|void|int|float|double|char|public|private|static)\s+\w+\s*\(",
+            "class": r"\bclass\s+\w+",
+            "function/method": r"\b(function|void|int|float|double|char|public|private|static)\s+\w+\s*\(",
             "for loop": r"\bfor\s*\(",
             "while loop": r"\bwhile\s*\(",
             "if condition": r"\bif\s*\(",
