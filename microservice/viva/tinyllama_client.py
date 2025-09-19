@@ -81,11 +81,15 @@ def generate_with_gemini(language: str, code: str, count: int = 5):
             return {"marks": 0, "questions": []}
 
     except Exception as e:
-        print("⚠️ Gemini API failed:", e)
+        print("⚠️ Try Again:", e)
         return None
 
 
-def generate_with_tinyllama(language: str, code: str, count: int = 5):
+def generate_with_tinyllama(language: str, code: str = "", count: int = 5):
+    if not code:
+        return {"marks": 0, "questions": [], "error": "No code provided"}
+    ...
+
     """
     Fallback: Call TinyLLaMA API running locally.
     Uses only code + language.

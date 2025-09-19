@@ -3,17 +3,16 @@ from viva.tinyllama_client import generate_with_gemini, generate_with_tinyllama
 import random
 import re
 
-
 def generate_viva_questions(code: str, language: str, count: int = 5):
     """
     Generate viva questions + marks for given code and language.
-    Priority: Gemini -> TinyLLaMA -> Fallback templates.
+    Priority: Gemini -> TinyLLaMA -> Fallback MCQs.
+    Returns structured JSON with MCQs.
     """
 
     # --- Step 1: Try Gemini first (MCQ with answers) ---
-    gemini_result = generate_with_gemini(code, language)
+    gemini_result = generate_with_gemini(code, language, count)
     if gemini_result and gemini_result.get("questions"):
-        # ✅ Limit to exactly 'count' questions
         gemini_result["questions"] = gemini_result["questions"][:count]
         return gemini_result
 
@@ -24,52 +23,84 @@ def generate_viva_questions(code: str, language: str, count: int = 5):
 
     # --- Step 3: Build prompt for TinyLLaMA ---
     prompt = (
-        f"Generate exactly {count} viva questions for {language} code.\n"
+        f"Generate exactly {count} MCQ viva questions for {language} code.\n"
         f"Concepts: {', '.join(keywords)}.\n"
-        "Do NOT include answers.\n"
-        "Start with: 'Marks: X' (where X is out of 10).\n"
-        f"Then list the questions, one per line, numbered 1 to {count}."
+        "Each question must have 4 options (A,B,C,D) and specify the correct answer.\n"
+        "Return only JSON like this format:\n"
+        """{
+  "marks": X,
+  "questions": [
+    {
+      "question": "Question text",
+      "options": ["Option A","Option B","Option C","Option D"],
+      "answer": "Correct option text"
+    }
+  ]
+}"""
     )
 
     result = generate_with_tinyllama(prompt)
 
-    marks = 0
-    questions = []
-
-    # Case A: structured dict returned
+    # --- Step 4: Try parsing TinyLLaMA JSON output ---
+    mcq_questions = []
+    marks = count  # default marks
     if isinstance(result, dict):
-        marks = result.get("marks", 0)
-        questions = result.get("questions", [])
-
-    # Case B: plain text returned → parse it
+        mcq_questions = result.get("questions", [])
+        marks = result.get("marks", count)
     elif isinstance(result, str):
-        match = re.search(r"Marks:\s*(\d+)", result)
-        if match:
-            marks = int(match.group(1))
-        questions = re.findall(r"\d+\.\s*(.+)", result)
+        try:
+            import json
+            parsed = json.loads(result)
+            mcq_questions = parsed.get("questions", [])
+            marks = parsed.get("marks", count)
+        except Exception:
+            pass
 
-    # --- Step 4: Fallback templates if TinyLLaMA fails ---
-    if not questions or len(questions) < count:
+    # --- Step 5: Fallback templates if TinyLLaMA fails ---
+    if not mcq_questions or len(mcq_questions) < count:
         base_templates = [
-            "What is the purpose of {kw} in {language}?",
-            "How does {kw} work in {language}?",
-            "Can you give an example of using {kw} in {language}?",
-            "Why is {kw} important in programming?",
-            "What are common errors when using {kw} in {language}?"
-        ]
+    (
+        "What does {kw} represent in {language}?",
+        ["A variable", "A function", "A class", "A loop construct"],
+        "A variable"
+    ),
+    (
+        "How is {kw} used in {language}?",
+        ["To store values", "To define a function", "To create objects", "To control loops"],
+        "To store values"
+    ),
+    (
+        "Why is {kw} important in {language}?",
+        ["It stores data", "It allows reusable logic", "It controls program flow", "It handles errors"],
+        "It allows reusable logic"
+    ),
+    (
+        "Give an example of {kw} in {language}.",
+        ["{kw} = 10", "for {kw} in range(5): pass", "function {kw}() {{}}", "class {kw} {{}}"],
+        "{kw} = 10"
+    ),
+    (
+        "What are common mistakes with {kw}?",
+        ["Using it before declaration", "Using it correctly", "Ignoring syntax rules", "Not using it at all"],
+        "Using it before declaration"
+    )
+]
+
+
         for kw in keywords:
-            for template in base_templates:
-                if len(questions) >= count:
+            for question_text, options, answer in base_templates:
+                if len(mcq_questions) >= count:
                     break
-                questions.append(template.format(kw=kw, language=language))
+                mcq_questions.append({
+                    "question": question_text.format(kw=kw, language=language),
+                    "options": options,
+                    "answer": answer
+                })
 
-    # --- Step 5: Ensure exactly 'count' questions ---
-    questions = list(dict.fromkeys(questions))[:count]
-
-    if marks == 0:
-        marks = random.randint(5, 9)
+    # --- Step 6: Ensure exactly 'count' questions ---
+    mcq_questions = mcq_questions[:count]
 
     return {
         "marks": marks,
-        "questions": questions
+        "questions": mcq_questions
     }

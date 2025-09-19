@@ -67,11 +67,11 @@ public class AISuggestionService {
                     .path("text")
                     .asText();
 
-            return text.isEmpty() ? "⚠️ Gemini gave no response." : text;
+            return text.isEmpty() ? "⚠️  no response." : text;
 
         } catch (Exception e) {
             // ✅ Backup: call TinyLLaMA if Gemini fails
-            return "⚠️ Gemini failed, falling back to TinyLLaMA...\n\n" + callTinyLLaMA(code, language);
+            return "⚠️ ⚠️ Try Again...\n\n" + callTinyLLaMA(code, language);
         }
     }
 
@@ -98,9 +98,16 @@ public class AISuggestionService {
                     String.class
             );
 
-            return response.getBody();
+            // ✅ Parse JSON and extract 'response' field
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(response.getBody());
+            String text = root.path("response").asText();
+
+            return text.isEmpty() ? "⚠️ TinyLLaMA returned empty response." : text;
+
         } catch (Exception e) {
-            return "⚠️ Both Gemini and TinyLLaMA failed: " + e.getMessage();
+            return "⚠️ Failed to generate... try again: " + e.getMessage();
         }
     }
+
 }

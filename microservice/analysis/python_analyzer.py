@@ -37,59 +37,41 @@ def analyze_python(code: str):
 
         def build_flow(node, parent_id=None, depth=1):
             metrics["max_nesting"] = max(metrics["max_nesting"], depth)
+            curr_id = None
 
-            # Class
             if isinstance(node, ast.ClassDef):
                 metrics["classes"] += 1
                 curr_id = add_node(f"📦 Class: {node.name}", "class")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
-                for stmt in node.body:
-                    build_flow(stmt, curr_id, depth+1)
+                for stmt in node.body: build_flow(stmt, curr_id, depth+1)
                 return curr_id
 
-            # Function
-            elif isinstance(node, ast.FunctionDef):
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 metrics["functions"] += 1
                 curr_id = add_node(f"🔧 Function: {node.name}", "function")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
-                for stmt in node.body:
-                    build_flow(stmt, curr_id, depth+1)
+                for stmt in node.body: build_flow(stmt, curr_id, depth+1)
                 return curr_id
 
-            # Loops
-            elif isinstance(node, ast.For):
+            elif isinstance(node, (ast.For, ast.While)):
                 metrics["loops"] += 1
                 metrics["cyclomatic_complexity"] += 1
-                curr_id = add_node(f"🔁 For: {safe_unparse(node.target)} in {safe_unparse(node.iter)}", "for")
+                label = f"🔁 {type(node).__name__}: {safe_unparse(node.target) + ' in ' + safe_unparse(node.iter) if isinstance(node, ast.For) else safe_unparse(node.test)}"
+                curr_id = add_node(label, "loop")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
-                for stmt in node.body:
-                    build_flow(stmt, curr_id, depth+1)
+                for stmt in node.body: build_flow(stmt, curr_id, depth+1)
                 return curr_id
 
-            elif isinstance(node, ast.While):
-                metrics["loops"] += 1
-                metrics["cyclomatic_complexity"] += 1
-                curr_id = add_node(f"🔁 While: {safe_unparse(node.test)}", "while")
-                if parent_id: edges.append({"from": parent_id, "to": curr_id})
-                for stmt in node.body:
-                    build_flow(stmt, curr_id, depth+1)
-                return curr_id
-
-            # If statement
             elif isinstance(node, ast.If):
                 metrics["cyclomatic_complexity"] += 1
                 curr_id = add_node(f"🔀 If: {safe_unparse(node.test)}", "decision")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
 
-                # True branch
                 last_true = curr_id
-                for stmt in node.body:
-                    last_true = build_flow(stmt, last_true, depth+1)
+                for stmt in node.body: last_true = build_flow(stmt, last_true, depth+1)
 
-                # False branch
                 last_false = curr_id
-                for stmt in node.orelse:
-                    last_false = build_flow(stmt, last_false, depth+1)
+                for stmt in node.orelse: last_false = build_flow(stmt, last_false, depth+1)
 
                 if node.orelse:
                     merge_id = add_node("Merge", "merge")
@@ -98,42 +80,66 @@ def analyze_python(code: str):
                     return merge_id
                 return last_true
 
-            # Return
             elif isinstance(node, ast.Return):
                 metrics["returns"] += 1
                 curr_id = add_node(f"🔹 Return: {safe_unparse(node.value)}", "return")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 return curr_id
 
-            # Assignment
-            elif isinstance(node, ast.Assign):
+            elif isinstance(node, (ast.Assign, ast.AugAssign)):
                 metrics["assignments"] += 1
+                if isinstance(node, ast.AugAssign): metrics["operators"] += 1
                 curr_id = add_node(f"🔸 Assign: {safe_unparse(node)}", "assign")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 return curr_id
 
-            elif isinstance(node, ast.AugAssign):
-                metrics["assignments"] += 1
-                metrics["operators"] += 1
-                curr_id = add_node(f"🔸 {safe_unparse(node)}", "assign")
-                if parent_id: edges.append({"from": parent_id, "to": curr_id})
-                return curr_id
-
-            # Function calls
             elif isinstance(node, ast.Call):
                 metrics["function_calls"] += 1
                 curr_id = add_node(f"🖨️ Call: {safe_unparse(node.func)}", "call")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 return curr_id
 
-            # Boolean operators
-            elif isinstance(node, ast.BoolOp):
-                metrics["cyclomatic_complexity"] += 1
-                curr_id = add_node(f"BooleanOp: {safe_unparse(node)}", "expr")
+            elif isinstance(node, (ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Compare)):
+                metrics["operators"] += 1
+                curr_id = add_node(f"{type(node).__name__}: {safe_unparse(node)}", "expr")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
                 return curr_id
 
-            # Other
+            elif isinstance(node, ast.With):
+                curr_id = add_node(f"🔒 With: {', '.join(safe_unparse(item) for item in node.items)}", "with")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                for stmt in node.body: build_flow(stmt, curr_id, depth+1)
+                return curr_id
+
+            elif isinstance(node, ast.Try):
+                curr_id = add_node("⚠️ Try", "try_catch")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                for stmt in node.body: build_flow(stmt, curr_id, depth+1)
+                for handler in node.handlers:
+                    h_id = add_node(f"🛑 Except: {safe_unparse(handler.type)}", "except")
+                    edges.append({"from": curr_id, "to": h_id})
+                    for stmt in handler.body: build_flow(stmt, h_id, depth+1)
+                if node.finalbody:
+                    f_id = add_node("🔚 Finally", "finally")
+                    edges.append({"from": curr_id, "to": f_id})
+                    for stmt in node.finalbody: build_flow(stmt, f_id, depth+1)
+                return curr_id
+
+            elif isinstance(node, (ast.Break, ast.Continue, ast.Pass)):
+                curr_id = add_node(type(node).__name__, type(node).__name__.lower())
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            elif isinstance(node, ast.Raise):
+                curr_id = add_node(f"✋ Raise: {safe_unparse(node.exc)}", "raise")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
+            elif isinstance(node, ast.Expr):
+                curr_id = add_node(safe_unparse(node.value), "expr")
+                if parent_id: edges.append({"from": parent_id, "to": curr_id})
+                return curr_id
+
             else:
                 curr_id = add_node(type(node).__name__, "other")
                 if parent_id: edges.append({"from": parent_id, "to": curr_id})
