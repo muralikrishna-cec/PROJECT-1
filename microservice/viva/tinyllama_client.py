@@ -3,142 +3,119 @@ import os
 import re
 import json
 
-# ✅ Gemini API setup
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDIJYia8LBXkP94LZ8wkmaBtGCzTXmgO-Y")
+# Gemini API keys
+GEMINI_API_KEYS = [
+    os.getenv("GEMINI_API_KEY1", "AIzaSyDIJYia8LBXkP94LZ8wkmaBtGCzTXmgO-Y"),
+    os.getenv("GEMINI_API_KEY2", "AIzaSyCGm1uGRJhEfl9cKPGNOSku4Ky1uL2G-fU")
+]
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
-# ✅ TinyLLaMA local fallback
+# TinyLLaMA local API
 TINYLAMA_API = "http://localhost:5000/chat"
 
 
+# --- Gemini Request ---
 def generate_with_gemini(language: str, code: str, count: int = 5):
-    """
-    Call Gemini API to generate structured MCQ viva questions.
-    Uses only code + language.
-    """
     prompt = f"""
-    You are an expert PG-level examiner. 
-    Generate {count} advanced MCQ viva-style questions for {language} programming.
-
-    🔹 Base the questions on:
-    - The programming language: {language}
-    - The actual code (syntax and logic):
-    ```{language}
-    {code}
-    ```
-
-    ✅ Requirements:
-    - Each question must have exactly 4 options (A,B,C,D).
-    - Clearly specify the correct answer.
-    - Questions should test language syntax, code logic, and conceptual understanding.
-    - Return only valid JSON in this format (no extra text, no explanations):
-
-    {{
-      "marks": {count},
-      "questions": [
-        {{
-          "question": "What does the for loop represent?",
-          "options": ["Infinite loop","Iterates fixed times","Handles exceptions","Declares a function"],
-          "answer": "Iterates fixed times"
-        }}
-      ]
-    }}
-    """
-
-    try:
-        resp = requests.post(
-            f"{GEMINI_API_URL}?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.5,
-                    "maxOutputTokens": 800
-                }
-            },
-            timeout=40
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        output_text = data["candidates"][0]["content"]["parts"][0]["text"]
-
-        # ✅ Extract JSON block
-        match = re.search(r"\{[\s\S]*\}", output_text)
-        if not match:
-            print("⚠️ No JSON found in Gemini output:", output_text)
-            return {"marks": 0, "questions": []}
-
-        json_str = match.group(0)
-        json_str = json_str.replace("```json", "").replace("```", "")
-        json_str = re.sub(r",\s*([\]}])", r"\1", json_str)
-
-        try:
-            parsed = json.loads(json_str)
-            return parsed
-        except json.JSONDecodeError as e:
-            print("⚠️ JSON parse failed:", e, "\nRaw JSON:", json_str)
-            return {"marks": 0, "questions": []}
-
-    except Exception as e:
-        print("⚠️ Try Again:", e)
-        return None
-
-
-def generate_with_tinyllama(language: str, code: str = "", count: int = 5):
-    if not code:
-        return {"marks": 0, "questions": [], "error": "No code provided"}
-    ...
-
-    """
-    Fallback: Call TinyLLaMA API running locally.
-    Uses only code + language.
-    """
-    prompt = f"""
-    Generate {count} PG-level viva questions for {language} programming.
-    Focus on both syntax and the given code.
+    Generate exactly 5 multiple-choice viva questions 
+    for {language} programming based on the given code.
 
     Code:
     ```{language}
     {code}
     ```
 
-    Format:
-    Marks: {count}
-    1. Question (with 4 options and correct answer)
-    ...
+    Return STRICT JSON only:
+    {{
+      "marks": {count},
+      "questions": [
+        {{
+          "question": "Question text",
+          "options": ["A","B","C","D"],
+          "answer": "Correct option text"
+        }}
+      ]
+    }}
+    """
+
+    for api_key in GEMINI_API_KEYS:
+        try:
+            resp = requests.post(
+                f"{GEMINI_API_URL}?key={api_key}",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 800,
+                        "responseMimeType": "application/json"
+                    }
+                },
+                timeout=40
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Try structured output
+            output_text = (
+                data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+            )
+
+            if not output_text.strip():
+                continue
+
+            cleaned = output_text.strip().replace("```json", "").replace("```", "")
+            parsed = json.loads(cleaned)
+            parsed["questions"] = parsed.get("questions", [])[:count]
+            parsed["marks"] = count
+            return parsed
+
+        except Exception as e:
+            print(f"[Gemini Error with key {api_key[:10]}...] {e}")
+
+    return None
+
+
+# --- TinyLLaMA Fallback ---
+def generate_with_tinyllama(language: str, code: str, count: int = 5):
+    prompt = f"""
+    Generate exactly {count} multiple-choice viva questions 
+    for {language} programming based on the given code.
+
+    Code:
+    ```{language}
+    {code}
+    ```
+
+    Respond in strict JSON format ONLY:
+    {{
+      "marks": {count},
+      "questions": [
+        {{
+          "question": "Q?",
+          "options": ["A","B","C","D"],
+          "answer": "Correct"
+        }}
+      ]
+    }}
     """
 
     try:
         resp = requests.post(TINYLAMA_API, json={"prompt": prompt}, timeout=40)
         resp.raise_for_status()
         data = resp.json()
-
         output = data.get("output", "")
-        marks, questions = 0, []
 
-        # ✅ Extract marks
-        match = re.search(r"Marks:\s*(\d+)", output)
+        match = re.search(r"\{[\s\S]*\}", output)
         if match:
-            marks = int(match.group(1))
-
-        # ✅ Extract questions
-        raw_qs = re.findall(r"\d+\.\s*(.+)", output)
-        for q in raw_qs[:count]:
-            questions.append({"question": q.strip(), "options": [], "answer": ""})
-
-        return {"marks": marks or count, "questions": questions}
-
-    except Exception:
-        return {"marks": 0, "questions": []}
-
-
-def generate_viva_questions(code: str, language: str, count: int = 5):
-    """
-    Main function: Try Gemini first → fallback TinyLLaMA.
-    """
-    gemini_result = generate_with_gemini(language, code, count)
-    if gemini_result and gemini_result.get("questions"):
-        return gemini_result
-
-    return generate_with_tinyllama(language, code, count)
+            parsed = json.loads(match.group(0))
+            parsed["questions"] = parsed.get("questions", [])[:count]
+            parsed["marks"] = count
+            return parsed
+        return None
+    except Exception as e:
+        print(f"[TinyLLaMA Error] {e}")
+        return None

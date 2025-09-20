@@ -54,7 +54,9 @@ export class CodeAnalyzer implements AfterViewInit, AfterViewChecked {
 vivaLoading = false;                   // true while fetching questions
 vivaSubmitted = false;                 // true after submitting answers
 vivaQuestions: { question: string; options: string[]; answer: string; }[] = [];
-vivaAnswers: string[] = [];            // user's selected options
+vivaAnswers: (string | null)[] = [];
+vivaWarning: string = '';
+
 vivaResult = '';                       // HTML result
 totalMarks = 0;                        // total marks possible
 marksPerQuestion = 1;                  // default marks per question
@@ -345,27 +347,59 @@ submitCode(): void {
   }
 
   /* ----------------- AI Suggestions ----------------- */
+
 // ⚡ Fetch + typing animation
 async fetchAISuggestionsTyping() {
   if (!this.monacoEditorInstance) return;
+
+  // ✅ Cancel any previous typing in progress
+  if (this.typingInterval) {
+    clearInterval(this.typingInterval);
+    this.typingInterval = null;
+  }
+
   const code = this.monacoEditorInstance.getValue();
   const payload = { language: this.selectedLang, code };
 
+  // Reset UI state
   this.isTyping = true;
   this.displayedSuggestions = [];
   this.aiSuggestions = [];
 
   try {
-    const res: any = await lastValueFrom(this.http.post<any>('http://localhost:8080/api/ai-suggest', payload));
-    const fullText: string = res.response || "❌ No AI suggestions available.";
+    const res: any = await lastValueFrom(
+      this.http.post<any>('http://localhost:8080/api/ai-suggest', payload)
+    );
 
-    this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
+    // ✅ Get clean response text
+    const fullText: string = (res?.response && res.response.trim().length > 0)
+      ? res.response
+      : "❌ No AI suggestions available.";
+
+    // Split into lines
+    this.aiSuggestions = fullText
+                            .split(/\r?\n/)
+                            .filter(line => line.trim() !== '')
+                            .map(line => this.highlightLine(line));
+
+    // 🚨 Special handling for rate limiter message
+    if (fullText.includes("Please try again after")) {
+  this.displayedSuggestions = [
+    `<span class="text-yellow-400 font-bold">⚠️ ${fullText}</span>`
+  ];
+  this.isTyping = false;
+  this.cdr.detectChanges();
+  return;
+}
+
+
+    // Otherwise animate line by line
     for (const line of this.aiSuggestions) {
-      await this.typeLine(line); // ✅ animate line by line
+      await this.typeLine(line);
     }
   } catch (err) {
     console.error('AI Suggestions error:', err);
-    this.aiSuggestions = ["❌ Failed to fetch AI suggestions."];
+    this.aiSuggestions = ["❌ Failed to fetch AI suggestions. Please try again later."];
     this.displayedSuggestions = [...this.aiSuggestions];
   } finally {
     this.isTyping = false;
@@ -373,22 +407,53 @@ async fetchAISuggestionsTyping() {
   }
 }
 
-  typeLine(line: string): Promise<void> {
-    return new Promise<void>((resolve) => {
-      let i = 0;
-      this.displayedSuggestions.push('');
-      this.typingInterval = setInterval(() => {
-        this.displayedSuggestions[this.displayedSuggestions.length - 1] += line[i];
-        i++;
-        this.cdr.detectChanges();
-        if (i >= line.length) {
-          clearInterval(this.typingInterval);
-          this.typingInterval = null;
-          setTimeout(() => resolve(), 150);
-        }
-      }, 30);
-    });
+typeLine(line: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let i = 0;
+    const plainText = line.replace(/<[^>]+>/g, ''); // strip tags
+    let typed = "";
+
+    // Extract wrapper (span with classes)
+    const wrapperMatch = line.match(/^<span[^>]*>(.*)<\/span>$/);
+    const wrapperStart = wrapperMatch ? line.substring(0, line.indexOf('>') + 1) : "";
+    const wrapperEnd = wrapperMatch ? "</span>" : "";
+
+    this.displayedSuggestions.push('');
+    this.typingInterval = setInterval(() => {
+      typed += plainText[i] || '';
+      this.displayedSuggestions[this.displayedSuggestions.length - 1] =
+        wrapperStart + typed + wrapperEnd; // always keep wrapper
+      i++;
+      this.cdr.detectChanges();
+
+      if (i >= plainText.length) {
+        clearInterval(this.typingInterval);
+        this.typingInterval = null;
+        setTimeout(() => resolve(), 150);
+      }
+    }, 30);
+  });
+}
+
+
+
+highlightLine(line: string): string {
+  if (line.toLowerCase().includes("output")) {
+    return `<span class="text-yellow-400 font-bold">⚡ ${line}</span>`;
+  } else if (line.toLowerCase().includes("bad practices")) {
+    return `<span class="text-red-400 font-bold">🚨 ${line}</span>`;
+  } else if (line.toLowerCase().includes("suggestions")) {
+    return `<span class="text-green-400 font-bold">✅ ${line}</span>`;
+  } else if (line.includes("Please try again after")) {
+    return `<span class="text-yellow-400 font-bold">⚠️ ${line}</span>`;
   }
+  return `<span class="text-gray-200">${line}</span>`;
+}
+
+
+
+
+
 
 fetchAISuggestions() {
   if (!this.monacoEditorInstance) return;
@@ -397,18 +462,36 @@ fetchAISuggestions() {
 
   this.http.post<any>('http://localhost:8080/api/ai-suggest', payload).subscribe({
     next: (res) => {
-      const fullText: string = res.response || "❌ No AI suggestions available.";
-      this.aiSuggestions = fullText.split(/\r?\n/).filter(line => line.trim() !== '');
-      this.displayedSuggestions = [...this.aiSuggestions]; // ✅ show instantly
+      const fullText: string =
+        (res?.response && res.response.trim().length > 0)
+          ? res.response
+          : "❌ No AI suggestions available.";
+
+      if (fullText.startsWith("⏳  Please try again after")) {
+        this.aiSuggestions = [fullText];
+        this.displayedSuggestions = [...this.aiSuggestions];
+      } else {
+        this.aiSuggestions = fullText
+                            .split(/\r?\n/)
+                            .filter(line => line.trim() !== '')
+                            .map(line => this.highlightLine(line));
+
+        this.displayedSuggestions = [...this.aiSuggestions];
+      }
+
       this.cdr.detectChanges();
     },
-    error: () => {
-      this.aiSuggestions = ["❌ Failed to fetch AI suggestions."];
+    error: (err) => {
+      console.error("AI Suggestions error:", err);
+      this.aiSuggestions = ["❌ Failed to fetch AI suggestions. Please try again later."];
       this.displayedSuggestions = [...this.aiSuggestions];
       this.cdr.detectChanges();
     }
   });
 }
+
+
+
 
   /* ----------------- Helpers ----------------- */
   getStrokeOffset(score: number) { const r = 45; return 2 * Math.PI * r - (score / 100) * 2 * Math.PI * r; }
@@ -442,13 +525,14 @@ fetchAISuggestions() {
 
 fetchVivaQuestions() {
   if (!this.monacoEditorInstance) return;
-
+  
   this.vivaLoading = true;
   this.vivaSubmitted = false;
   this.vivaQuestions = [];
   this.vivaAnswers = [];
   this.totalMarks = 0;
   this.marksPerQuestion = 0;
+  this.vivaResult = ''; // clear old result
 
   const payload = {
     code: this.monacoEditorInstance.getValue(),
@@ -457,7 +541,16 @@ fetchVivaQuestions() {
 
   this.http.post<any>('http://localhost:8000/viva', payload).subscribe({
     next: res => {
-      if (res && res.questions && res.questions.length > 0) {
+      if (res?.response) {
+        // ⚠️ Show rate limit / error message directly
+        this.vivaResult = `<p class="text-red-400 font-semibold">${res.response}</p>`;
+        this.vivaQuestions = [];
+        this.vivaAnswers = [];
+        this.totalMarks = 0;
+        this.marksPerQuestion = 0;
+        this.vivaSubmitted = true; // so UI can show it
+      } else if (res?.questions && res.questions.length > 0) {
+        // ✅ Normal questions flow
         this.vivaQuestions = res.questions.map((q: any, index: number) => ({
           index: index + 1,
           question: q.question,
@@ -467,7 +560,8 @@ fetchVivaQuestions() {
 
         this.totalMarks = res.marks || this.vivaQuestions.length;
         this.marksPerQuestion = this.totalMarks / this.vivaQuestions.length;
-        this.vivaAnswers = new Array(this.vivaQuestions.length).fill('');
+        this.vivaAnswers = new Array(this.vivaQuestions.length).fill(null);
+
       } else {
         console.warn('No questions received from backend.');
         this.vivaQuestions = [];
@@ -481,6 +575,7 @@ fetchVivaQuestions() {
     },
     error: err => {
       console.error('Viva fetch error:', err);
+      this.vivaResult = `<p class="text-red-400 font-semibold">❌ Failed to fetch viva questions. Please try again later.</p>`;
       this.vivaQuestions = [];
       this.vivaAnswers = [];
       this.vivaLoading = false;
@@ -491,10 +586,24 @@ fetchVivaQuestions() {
 
 
 
+
 submitVivaAnswers() {
   if (!this.vivaAnswers.length) return;
 
+  // ⚠️ Check for unanswered questions
+  const unanswered = this.vivaAnswers.some(ans => ans === null || ans === '');
+  if (unanswered) {
+    this.vivaWarning = "⚠️ Please answer all questions before submitting.";
+    this.vivaSubmitted = false;
+    this.vivaLoading = false;
+    this.cdr.detectChanges();
+    return;
+  }
+
+  // ✅ Clear warning if everything is answered
+  this.vivaWarning = '';
   this.vivaLoading = true;
+
   let score = 0;
   let resultHtml = '<ol class="list-decimal pl-5">';
 
@@ -518,6 +627,8 @@ submitVivaAnswers() {
   this.vivaLoading = false;
   this.cdr.detectChanges();
 }
+
+
 
 
 }

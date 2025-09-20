@@ -5,6 +5,7 @@ import com.codereview.backend.model.PlagiarismRequest;
 import com.codereview.backend.service.*;
 import com.codereview.backend.util.BatchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -72,13 +73,29 @@ public class CodeAnalysisController {
 
     @PostMapping("/ai-suggest")
     public ResponseEntity<Map<String, String>> getAISuggestion(@RequestBody AISuggestionRequest request) {
-        String result = aiSuggestionService.getAISuggestion(request.getCode(), request.getLanguage());
-
         Map<String, String> response = new HashMap<>();
-        response.put("response", result); // ✅ wrap in JSON
+        try {
+            String result = aiSuggestionService.getAISuggestion(request.getCode(), request.getLanguage());
 
-        return ResponseEntity.ok(response);
+            // sanitize + fallback
+            if (result == null || result.trim().isEmpty()) {
+                result = "❌ No AI suggestions available.";
+            } else {
+                // remove weird characters like emojis / control chars
+                result = result.replaceAll("[^\\x20-\\x7E\\r\\n]", "");
+            }
+
+            response.put("response", result);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            response.put("response", "❌ Error generating AI suggestions.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
+
+
+
 
 
     /**
