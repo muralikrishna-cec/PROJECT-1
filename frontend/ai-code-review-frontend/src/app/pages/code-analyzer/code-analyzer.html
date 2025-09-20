@@ -109,25 +109,33 @@
         </button>
       </div>
 
-      <!-- Visualization -->
-      <div *ngIf="activeTab==='visualization'" class="w-full bg-gray-900 px-4 py-6">
-        <div class="flex items-center justify-between mb-4 px-2">
-          <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
-          <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-300">Speed (ms):</label>
-            <input type="number" [(ngModel)]="speedMs" class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
-            <button (click)="playD3()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
-            <button (click)="pauseD3()" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
-            <button (click)="resetD3()" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
-          </div>
-        </div>
-        <div class="overflow-auto" style="padding-bottom:100px;">
-          <div id="graph-container" style="min-width:2000px; min-height:1000px;"></div>
-        </div>
-        <p class="text-gray-400 text-xs mt-2 px-2">
-          Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
-        </p>
-      </div>
+     <!-- Visualization -->
+<div *ngIf="activeTab==='visualization'" class="w-full bg-gray-900 px-4 py-6">
+  <div class="flex items-center justify-between mb-4 px-2">
+    <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-gray-300">Speed (ms):</label>
+      <input type="number" [(ngModel)]="speedMs" 
+             class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
+      <button (click)="playD3()" 
+              class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
+      <button (click)="pauseD3()" 
+              class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
+      <button (click)="resetD3()" 
+              class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
+    </div>
+  </div>
+
+  <!-- Add scrollable container with padding on all sides -->
+  <div class="overflow-auto" style="padding: 0 200px 100px 200px;">
+    <div id="graph-container" style="min-width:2000px; min-height:1000px;"></div>
+  </div>
+
+  <p class="text-gray-400 text-xs mt-2 px-2">
+    Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
+  </p>
+</div>
+
 
       <!-- AI Suggestions -->
       <div *ngIf="activeTab==='suggestions'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">

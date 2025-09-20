@@ -38,36 +38,82 @@
     </button>
   </div>
 
-  <table class="min-w-full w-full border-collapse border border-gray-700">
-    <thead>
-      <tr class="bg-gray-800">
-        <th class="border border-gray-600 px-4 py-2 text-left">Path</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Language</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Classes</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Methods</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">LOC</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Comments</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Cyclomatic Complexity</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Quality Score</th>
-        <th class="border border-gray-600 px-4 py-2 text-left">Note</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let file of result" class="odd:bg-gray-700 even:bg-gray-800">
-        <td class="border border-gray-600 px-4 py-2">{{ file.path }}</td>
+<table class="min-w-full w-full border-collapse border border-gray-700">
+  <thead>
+    <tr class="bg-gray-800">
+      <th class="border border-gray-600 px-4 py-2 text-left">Path</th>
+      <th class="border border-gray-600 px-4 py-2 text-left">Language</th>
+      <th class="border border-gray-600 px-4 py-2 text-left">LOC</th>
+      <th class="border border-gray-600 px-4 py-2 text-left">Cyclomatic Complexity</th>
+      <th class="border border-gray-600 px-4 py-2 text-left">Quality Score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <ng-container *ngFor="let file of result">
+      <!-- Summary row -->
+      <tr
+        (click)="file.expanded = !file.expanded"
+        class="odd:bg-gray-700 even:bg-gray-800 cursor-pointer hover:bg-gray-600 transition"
+      >
+        <td class="border border-gray-600 px-4 py-2 font-semibold">{{ file.path }}</td>
         <td class="border border-gray-600 px-4 py-2">{{ file.language }}</td>
-        <td class="border border-gray-600 px-4 py-2">{{ file.classes }}</td>
-        <td class="border border-gray-600 px-4 py-2">{{ file.methods }}</td>
-        <td class="border border-gray-600 px-4 py-2">{{ file.lines_of_code }}</td>
-        <td class="border border-gray-600 px-4 py-2">{{ file.comments }}</td>
-        <td class="border border-gray-600 px-4 py-2">{{ file.cyclomatic_complexity }}</td>
+        
+         <td class="border border-gray-600 px-4 py-2">{{ file.loc }}</td>
+         <td class="border border-gray-600 px-4 py-2">{{ file.cyclomatic_complexity }}</td>
         <td class="border border-gray-600 px-4 py-2">{{ file.quality_score }}%</td>
-        <td class="border border-gray-600 px-4 py-2" [ngClass]="getNoteClass(file.note)">
-          {{ file.note || '-' }}
+      </tr>
+
+      <!-- Expanded details row -->
+      <tr *ngIf="file.expanded">
+        <td colspan="4" class="bg-gray-900 border border-gray-700 px-6 py-4">
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div><strong>Classes:</strong> {{ file.classes }}</div>
+            <div><strong>Methods:</strong> {{ file.methods }}</div>
+            <div><strong>Assignments:</strong> {{ file.assignments }}</div>
+            <div><strong>Functions:</strong> {{ file.functions }}</div>
+            <div><strong>Function Calls:</strong> {{ file.function_calls }}</div>
+            <div><strong>Loops:</strong> {{ file.loops }}</div>
+            <div><strong>Max Nesting:</strong> {{ file.max_nesting }}</div>
+            <div><strong>Operators:</strong> {{ file.operators }}</div>
+            <div><strong>Returns:</strong> {{ file.returns }}</div>
+            <div><strong>Comments:</strong> {{ file.comments }}</div>
+            <div><strong>Cyclomatic Complexity:</strong> {{ file.cyclomatic_complexity }}</div>
+            <div>
+              <strong>Note:</strong>
+              <span [ngClass]="getNoteClass(file.note)">{{ file.note || '-' }}</span>
+            </div>
+            <div>
+              <strong>Suggestions:</strong>
+              <span [ngClass]="getNoteClass(file.suggestions)">{{ file.suggestions || '-' }}</span>
+            </div>
+          </div>
+
+          <!-- Errors Section -->
+          <div class="mt-4">
+            <h4 class="font-semibold text-red-400">⚠️ Errors</h4>
+            <div *ngIf="file.syntax_errors && file.syntax_errors !== '-'"
+                 class="text-red-400 whitespace-pre-line mb-2">
+              <strong>Syntax Errors:</strong>
+              <pre>{{ file.syntax_errors }}</pre>
+            </div>
+            <div *ngIf="file.logic_issues && file.logic_issues !== '-'"
+                 class="text-yellow-400 whitespace-pre-line">
+              <strong>Logic Issues:</strong>
+              <pre>{{ file.logic_issues }}</pre>
+            </div>
+            <div *ngIf="(!file.syntax_errors || file.syntax_errors === '-') && 
+                        (!file.logic_issues || file.logic_issues === '-')"
+                 class="text-green-400">
+              ✅ No errors detected
+            </div>
+          </div>
         </td>
       </tr>
-    </tbody>
-  </table>
+    </ng-container>
+  </tbody>
+</table>
+
+
 </div>
 
   </div>

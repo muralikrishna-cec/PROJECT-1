@@ -70,7 +70,7 @@ export class BatchProcessingComponent {
     }
   }
 
-  // ✅ Handle API response
+// ✅ Handle API response
 private handleResponse(res: any) {
   if (!res || !Array.isArray(res.files)) {
     this.error = 'Unexpected response format';
@@ -80,18 +80,40 @@ private handleResponse(res: any) {
   }
 
   this.result = res.files.map((file: any) => {
-    const m = file.metrics?.metrics || {}; // numeric metrics
+    const m = file.metrics || {};
 
     return {
       path: file.path,
       language: file.language,
+
+      // 🔹 Metrics
+      assignments: m.assignments || 0,
       classes: m.classes || 0,
-      methods: m.functions || 0,         // functions → methods
-      lines_of_code: m.loc || 0,         // loc → lines_of_code
+      functions: m.functions || 0,
+      function_calls: m.function_calls || 0,
+      loc: m.loc || 0,
+      loops: m.loops || 0,
+      max_nesting: m.max_nesting || 0,
+      operators: m.operators || 0,
+      returns: m.returns || 0,
       comments: m.comments || 0,
       cyclomatic_complexity: m.cyclomatic_complexity || 0,
       quality_score: m.quality_score || 0,
-      note: (file.metrics?.suggestions?.join('; ')) || '-', // suggestions as note
+
+      // 🔹 AI Suggestions
+      suggestions: (file.suggestions?.join('; ')) || '-',
+
+      // 🔹 Syntax Errors
+      syntax_errors:
+        file.syntax_errors && file.syntax_errors.length > 0
+          ? file.syntax_errors.join('\n')
+          : '-',
+
+      // 🔹 Logic Issues
+      logic_issues:
+        file.logic_issues && file.logic_issues.length > 0
+          ? file.logic_issues.join('\n')
+          : '-'
     };
   });
 
@@ -110,10 +132,11 @@ private handleResponse(res: any) {
     this.cdr.detectChanges();
   }
 
-  // ✅ Export table as PDF using jsPDF
+
  
 
 
+// ✅ Export table as PDF using jsPDF
 exportPDF() {
   if (!this.result || this.result.length === 0) {
     this.error = 'No data available to export';
@@ -125,44 +148,71 @@ exportPDF() {
   doc.setFontSize(16);
   doc.text('📦 Batch Processing Report', 14, 20);
 
-  // Table headers
-  const headers = [
-    'Path',
-    'Language',
-    'Classes',
-    'Methods',
-    'LOC',
-    'Comments',
-    'Cyclomatic Complexity',
-    'Quality Score',
-    'Note'
-  ];
+  // ✅ Build table body with all fields
+  const body: any[] = [];
 
-  // Table body
-  const body = this.result.map(row => [
-    row.path || '-',
-    row.language || '-',
-    row.classes ?? 0,
-    row.methods ?? 0,
-    row.lines_of_code ?? 0,
-    row.comments ?? 0,
-    row.cyclomatic_complexity ?? 0,
-    `${row.quality_score ?? 0}%`,
-    Array.isArray(row.note) ? row.note.join('; ') : row.note || '-'
-  ]);
+  this.result.forEach((file, index) => {
+    body.push([
+      {
+        content: `#${index + 1}  ${file.path || '-'}`,
+        colSpan: 2,
+        styles: { halign: 'left', fillColor: [230, 230, 250] }
+      }
+    ]);
+
+    body.push(['Language', file.language || '-']);
+    body.push(['Assignments', file.assignments ?? 0]);
+    body.push(['Classes', file.classes ?? 0]);
+    body.push(['Functions', file.functions ?? 0]);
+    body.push(['Function Calls', file.function_calls ?? 0]);
+    body.push(['Lines of Code', file.loc ?? file.lines_of_code ?? 0]);
+    body.push(['Loops', file.loops ?? 0]);
+    body.push(['Max Nesting', file.max_nesting ?? 0]);
+    body.push(['Operators', file.operators ?? 0]);
+    body.push(['Returns', file.returns ?? 0]);
+    body.push(['Comments', file.comments ?? 0]);
+    body.push(['Cyclomatic Complexity', file.cyclomatic_complexity ?? 0]);
+    body.push(['Quality Score', `${file.quality_score ?? 0}%`]);
+
+    body.push([
+      'Note',
+      Array.isArray(file.note) ? file.note.join('; ') : file.note || '-'
+    ]);
+    body.push([
+      'Suggestions',
+      Array.isArray(file.suggestions) ? file.suggestions.join('; ') : file.suggestions || '-'
+    ]);
+    body.push([
+      'Syntax Errors',
+      Array.isArray(file.syntax_errors) ? file.syntax_errors.join('\n') : file.syntax_errors || '-'
+    ]);
+    body.push([
+      'Logic Issues',
+      Array.isArray(file.logic_issues) ? file.logic_issues.join('\n') : file.logic_issues || '-'
+    ]);
+
+    // ✅ Add separator between files
+    body.push([{ content: '', colSpan: 2, styles: { fillColor: [255, 255, 255] } }]);
+  });
 
   autoTable(doc, {
     startY: 30,
-    head: [headers],
+    head: [['Field', 'Value']],
     body: body,
-    styles: { fontSize: 10 },
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 3, valign: 'top' },
     headStyles: { fillColor: [22, 160, 133], textColor: 255 },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 30 }
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+    columnStyles: {
+      0: { cellWidth: 60, fontStyle: 'bold' }, // Field column
+      1: { cellWidth: 120 } // Value column
+    },
+    margin: { top: 30 },
   });
 
   doc.save('batch-report.pdf');
 }
+
 
 
 

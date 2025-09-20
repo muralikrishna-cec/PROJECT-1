@@ -10,38 +10,64 @@ from analysis.python_analyzer import analyze_python
 from analysis.javascript_analyzer import analyze_javascript
 from analysis.c_cpp_analyzer import analyze_c_cpp
 from analysis.java_analyzer import analyze_java
+from analysis.error_checker import (
+    check_python_errors,
+    check_javascript_errors,
+    check_c_cpp_errors,
+    check_java_errors
+)
 
 def analyze_file(path, language):
+    """Analyze a single file: metrics + syntax + logic issues."""
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
         code = f.read()
 
-    if language == "python":
-        return analyze_python(code)
-    elif language == "javascript":
-        return analyze_javascript(code)
-    elif language in ["c", "cpp"]:
-        return analyze_c_cpp(code, language)
-    elif language == "java":
-        return analyze_java(code)
-    else:
-        # Fallback for unknown languages
-        return {
-            "metrics": {
-                "lines_of_code": len(code.splitlines()),
-                "functions": 0,
-                "loops": 0,
-                "cyclomatic_complexity": 0,
-                "methods": 0,
-                "comments": 0,
-                "quality_score": 0
-            },
-            "classes": [],
-            "functions": [],
-            "suggestions": [],
-            "note": "Basic metrics only"
-        }
+    # Default metrics
+    base_result = {
+        "metrics": {
+            "lines_of_code": len(code.splitlines()),
+            "functions": 0,
+            "loops": 0,
+            "cyclomatic_complexity": 0,
+            "methods": 0,
+            "comments": 0,
+            "quality_score": 0
+        },
+        "classes": [],
+        "functions": [],
+        "suggestions": [],
+        "syntax_errors": [],
+        "logic_issues": []
+    }
+
+    try:
+        # Run existing analyzer
+        if language == "python":
+            result = analyze_python(code)
+            se, le = check_python_errors(code)
+        elif language == "javascript":
+            result = analyze_javascript(code)
+            se, le = check_javascript_errors(code)
+        elif language in ["c", "cpp"]:
+            result = analyze_c_cpp(code, language)
+            se, le = check_c_cpp_errors(code, language)
+        elif language == "java":
+            result = analyze_java(code)
+            se, le = check_java_errors(code)
+        else:
+            result, se, le = base_result, [], []
+
+        # Merge results with error checks
+        result.setdefault("syntax_errors", []).extend(se)
+        result.setdefault("logic_issues", []).extend(le)
+        return result
+
+    except Exception as e:
+        return {**base_result, "syntax_errors": [str(e)]}
+
 
 def process_batch(source_type, source_value):
+    """Process a batch (GitHub repo or uploaded ZIP)."""
     tmpdir = tempfile.mkdtemp(prefix="batch_")
     try:
         # --- 1. Fetch or extract repo ---
@@ -79,6 +105,8 @@ def process_batch(source_type, source_value):
             "total_cyclomatic_complexity": 0,
             "total_functions": 0,
             "total_loops": 0,
+            "syntax_errors_found": 0,
+            "logic_issues_found": 0
         }
         languages = set()
         all_suggestions = []
@@ -105,10 +133,21 @@ def process_batch(source_type, source_value):
                     metrics = {"metrics": {}, "error": str(e)}
                     summary["files_with_errors"] += 1
 
+                syntax_errs = metrics.get("syntax_errors", [])
+                logic_errs = metrics.get("logic_issues", [])
+
+                if syntax_errs or logic_errs:
+                    summary["files_with_errors"] += 1
+                summary["syntax_errors_found"] += len(syntax_errs)
+                summary["logic_issues_found"] += len(logic_errs)
+
                 files_report.append({
                     "path": os.path.relpath(fpath, tmpdir),
                     "language": language,
-                    "metrics": metrics,
+                    "metrics": metrics.get("metrics", {}),
+                    "syntax_errors": syntax_errs,
+                    "logic_issues": logic_errs,
+                    "suggestions": metrics.get("suggestions", [])
                 })
 
                 summary["total_files"] += 1

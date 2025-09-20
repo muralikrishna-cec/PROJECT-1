@@ -301,50 +301,86 @@ submitCode(): void {
     this.svg.selectAll('text').attr('fill', '#f9fafb');
   }
 
-  private tickD3() {
-    if (!this.isPlaying) return;
-    const totalSteps = this.nodeOrder.length + this.edgesOrder.length;
-    if (this.stepIndex >= totalSteps) { this.isPlaying = false; return; }
+private tickD3() {
+  if (!this.isPlaying) return;
 
-    if (this.stepIndex < this.nodeOrder.length) {
-      const nodeId = this.nodeOrder[this.stepIndex];
-      this.nodeElements.filter(d => d.data.id === nodeId)
-        .transition().duration(this.speedMs / 2)
-        .attr('fill', '#ef4444');
-      this.svg.selectAll('text')
-        .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === nodeId)
-        .transition().duration(this.speedMs / 2)
-        .attr('fill', '#ffffff');
-    } else {
-      const edgeIdx = this.stepIndex - this.nodeOrder.length;
-      const e = this.edgesOrder[edgeIdx];
-      const edgePath = this.linkElements.filter(d => d.source.data.id === e.from && d.target.data.id === e.to);
-      edgePath.transition().duration(this.speedMs / 2)
-        .attr('stroke', '#10b981')
-        .attr('stroke-width', 3);
-
-      const pathEl = edgePath.node() as SVGLineElement;
-      if (pathEl) {
-        const length = pathEl.getTotalLength();
-        const dot = this.svg.append('circle')
-          .attr('r', 3)
-          .attr('fill', '#10b981')
-          .attr('opacity', 1)
-          .raise();
-
-        dot.transition()
-          .duration(this.speedMs)
-          .attrTween('transform', () => t => {
-            const p = pathEl.getPointAtLength(t * length);
-            return `translate(${p.x},${p.y})`;
-          })
-          .on('end', () => dot.remove());
-      }
-    }
-
-    this.stepIndex++;
-    this.timerRef = setTimeout(() => this.tickD3(), this.speedMs);
+  // Stop when all edges are traversed
+  if (this.stepIndex >= this.edgesOrder.length) {
+    this.isPlaying = false;
+    return;
   }
+
+  const e = this.edgesOrder[this.stepIndex];
+
+  // 🔹 First highlight the source node (yellow → red)
+  this.nodeElements
+    .filter(d => d.data.id === e.from)
+    .transition()
+    .duration(this.speedMs / 3)
+    .attr('fill', '#ef4444') // 🔴 active red
+    .attr('stroke', '#b91c1c'); // darker red stroke
+
+  this.svg
+    .selectAll('text')
+    .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === e.from)
+    .transition()
+    .duration(this.speedMs / 3)
+    .attr('fill', '#ffffff'); // bright label
+
+  // Highlight edge
+  const edgePath = this.linkElements.filter(
+    d => d.source.data.id === e.from && d.target.data.id === e.to
+  );
+  edgePath
+    .transition()
+    .duration(this.speedMs / 3)
+    .attr('stroke', '#10b981') // 🟢 green path
+    .attr('stroke-width', 3);
+
+  // Animate green dot moving along edge
+  const pathEl = edgePath.node() as SVGLineElement;
+  if (pathEl) {
+    const length = pathEl.getTotalLength();
+    const dot = this.svg
+      .append('circle')
+      .attr('r', 4)
+      .attr('fill', '#10b981')
+      .attr('opacity', 1)
+      .raise();
+
+    dot
+      .transition()
+      .duration(this.speedMs)
+      .attrTween('transform', () => t => {
+        const p = pathEl.getPointAtLength(t * length);
+        return `translate(${p.x},${p.y})`;
+      })
+      .on('end', () => {
+        dot.remove();
+
+        // 🔹 After traversal finishes, mark target node as visited
+        this.nodeElements
+          .filter(d => d.data.id === e.to)
+          .transition()
+          .duration(this.speedMs / 2)
+          .attr('fill', '#ef4444') // 🔴 visited red
+          .attr('stroke', '#b91c1c');
+
+        this.svg
+          .selectAll('text')
+          .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === e.to)
+          .transition()
+          .duration(this.speedMs / 2)
+          .attr('fill', '#ffffff');
+
+        // Move to next edge
+        this.stepIndex++;
+        this.timerRef = setTimeout(() => this.tickD3(), this.speedMs);
+      });
+  }
+}
+
+
 
   /* ----------------- AI Suggestions ----------------- */
 
