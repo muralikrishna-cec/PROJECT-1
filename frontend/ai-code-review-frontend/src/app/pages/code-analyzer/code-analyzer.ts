@@ -69,7 +69,8 @@ marksPerQuestion = 1;                  // default marks per question
 
   private monacoEditorInstance!: monaco.editor.IStandaloneCodeEditor;
   private svg!: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-  private nodeElements!: d3.Selection<SVGPathElement, d3.HierarchyNode<GraphNode>, SVGGElement, unknown>;
+private nodeElements!: d3.Selection<SVGCircleElement, d3.HierarchyNode<GraphNode>, SVGGElement, unknown>;
+
   private linkElements!: d3.Selection<SVGLineElement, d3.HierarchyLink<GraphNode>, SVGGElement, unknown>;
 
   isPlaying = false;
@@ -188,89 +189,143 @@ submitCode(): void {
     }
   }
 
-  /* ----------------- D3 Graph & Animation ----------------- */
-  private renderAndPrepareGraph(nodes: GraphNode[], edges: GraphEdge[]) {
-    this.renderD3Graph(nodes, edges);
-    this.prepareAnimation(nodes, edges);
-    this.resetD3();
-    this.cdr.detectChanges();
+
+
+
+ /* ----------------- D3 Graph & Animation ----------------- */
+private renderAndPrepareGraph(nodes: GraphNode[], edges: GraphEdge[]) {
+  this.renderD3Graph(nodes, edges);
+  this.prepareAnimation(nodes, edges);
+  this.resetD3();
+  this.cdr.detectChanges();
+}
+
+
+
+private renderD3Graph(nodes: GraphNode[], edges: GraphEdge[]) {
+  const container = d3.select('#graph-container');
+  container.selectAll('*').remove();
+  const el = container.node() as HTMLElement;
+  const width = el.clientWidth || 800;
+  const height = el.clientHeight || 600;
+
+  this.svg = container.append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  // Arrow markers
+  this.svg.append('defs').append('marker')
+    .attr('id', 'arrowhead')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 15)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', '#60a5fa');
+
+  const padding = { top: 50, right: 50, bottom: 50, left: 50 };
+  const verticalSpacing = 120;
+
+  // Build hierarchy
+  const stratifier = d3.stratify<GraphNode>()
+    .id(d => d.id)
+    .parentId(d => edges.find(e => e.to === d.id)?.from ?? null);
+
+  let root: d3.HierarchyNode<GraphNode>;
+  try {
+    root = stratifier(nodes as any);
+  } catch (err) {
+    console.error("Invalid tree structure", err);
+    return;
   }
 
-  private renderD3Graph(nodes: GraphNode[], edges: GraphEdge[]) {
-    const container = d3.select('#graph-container');
-    container.selectAll('*').remove();
-    const el = container.node() as HTMLElement;
-    const width = el.clientWidth || 800;
-    const height = el.clientHeight || 600;
+  // ✅ Use size + separation instead of nodeSize
+  const treeLayout = d3.tree<GraphNode>()
+    .size([width - padding.left - padding.right, height - padding.top - padding.bottom])
+    .separation((a, b) => {
+      if (a.parent === b.parent) {
+        // if root has too many children, spread them wider
+        return a.parent && a.parent.children && a.parent.children.length > 3 ? 2 : 1;
+      }
+      return 1;
+    });
 
-    this.svg = container.append('svg')
-      .attr('width', width)
-      .attr('height', height);
+  treeLayout(root);
 
-    // Arrow markers
-    this.svg.append('defs').append('marker')
-      .attr('id', 'arrowhead')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 15)
-      .attr('refY', 0)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M0,-5L10,0L0,5')
-      .attr('fill', '#60a5fa');
+  // shift everything for padding + vertical growth
+  root.each(d => {
+    d.x = d.x! + padding.left;
+    d.y = padding.top + d.depth * verticalSpacing;
+  });
 
-    const padding = { top: 50, right: 50, bottom: 50, left: 50 };
+  const nodesDesc = root.descendants();
 
-    const root: d3.HierarchyNode<GraphNode> = d3.stratify<GraphNode>()
-      .id(d => d.id)
-      .parentId(d => edges.find(e => e.to === d.id)?.from ?? null)(nodes as any);
+  // Links
+  this.linkElements = this.svg.append('g')
+    .selectAll('line')
+    .data(root.links())
+    .enter()
+    .append('line')
+    .attr('x1', d => d.source.x!)
+    .attr('y1', d => d.source.y!)
+    .attr('x2', d => d.target.x!)
+    .attr('y2', d => d.target.y!)
+    .attr('stroke', '#9ca3af')
+    .attr('stroke-width', 2)
+    .attr('marker-end', 'url(#arrowhead)');
 
-    const treeLayout = d3.tree<GraphNode>().nodeSize([200, 120]);
-    treeLayout(root);
+  // Nodes
+  const nodeRadius = 30;
+  this.nodeElements = this.svg.append('g')
+    .selectAll('circle')
+    .data(nodesDesc)
+    .enter()
+    .append('circle')
+    .attr('cx', d => d.x!)
+    .attr('cy', d => d.y!)
+    .attr('r', nodeRadius)
+    .attr('fill', '#60a5fa')
+    .attr('stroke', '#3b82f6')
+    .attr('stroke-width', 2);
 
-    const nodesDesc = root.descendants();
-    const minX = d3.min(nodesDesc, d => d.x!)!;
-    const maxX = d3.max(nodesDesc, d => d.x!)!;
-    const offsetX = (width - padding.left - padding.right - (maxX - minX)) / 2 - minX;
-    nodesDesc.forEach(d => { d.x = d.x! + offsetX + padding.left; d.y = d.y! + padding.top; });
+  // Labels
+  this.svg.append('g')
+    .selectAll('text')
+    .data(nodesDesc)
+    .enter()
+    .append('text')
+    .text(d => {
+      const lbl = d.data.label;
+      return lbl.length > 20 ? lbl.slice(0, 15) + "…" : lbl;
+    })
+    .attr('x', d => d.x!)
+    .attr('y', d => d.y! + 5)
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'middle')
+    .attr('fill', '#f9fafb')
+    .attr('font-size', 12)
+    .style('pointer-events', 'none');
 
-    this.linkElements = this.svg.append('g')
-      .selectAll<SVGLineElement, d3.HierarchyLink<GraphNode>>('line')
-      .data(root.links())
-      .enter()
-      .append('line')
-      .attr('x1', d => d.source.x!)
-      .attr('y1', d => d.source.y!)
-      .attr('x2', d => d.target.x!)
-      .attr('y2', d => d.target.y!)
-      .attr('stroke', '#9ca3af')
-      .attr('stroke-width', 2)
-      .attr('marker-end', 'url(#arrowhead)');
+  // Tooltip (hidden initially)
+  const tooltip = this.svg.append("g")
+    .attr("id", "node-tooltip")
+    .style("display", "none");
 
-    this.nodeElements = this.svg.append('g')
-      .selectAll<SVGPathElement, d3.HierarchyNode<GraphNode>>('path')
-      .data(nodesDesc)
-      .enter()
-      .append('path')
-      .attr('d', d3.symbol().type(d3.symbolCircle).size(3000))
-      .attr('fill', '#60a5fa')
-      .attr('stroke', '#3b82f6')
-      .attr('stroke-width', 2)
-      .attr('transform', d => `translate(${d.x},${d.y})`);
+  tooltip.append("rect")
+    .attr("fill", "#111827")
+    .attr("stroke", "#10b981")
+    .attr("rx", 6)
+    .attr("ry", 6);
 
-    this.svg.append('g')
-      .selectAll<SVGTextElement, d3.HierarchyNode<GraphNode>>('text')
-      .data(nodesDesc)
-      .enter()
-      .append('text')
-      .text(d => d.data.label)
-      .attr('x', d => d.x!)
-      .attr('y', d => d.y! + 5)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#f9fafb')
-      .attr('font-size', 12);
-  }
+  tooltip.append("text")
+    .attr("text-anchor", "middle")
+    .attr("fill", "#f9fafb")
+    .attr("font-size", 12);
+}
+
 
   private prepareAnimation(nodes: GraphNode[], edges: GraphEdge[]) {
     const start = nodes[0]?.id;
@@ -301,10 +356,13 @@ submitCode(): void {
     this.svg.selectAll('text').attr('fill', '#f9fafb');
   }
 
+
+
+
+
 private tickD3() {
   if (!this.isPlaying) return;
 
-  // Stop when all edges are traversed
   if (this.stepIndex >= this.edgesOrder.length) {
     this.isPlaying = false;
     return;
@@ -312,44 +370,73 @@ private tickD3() {
 
   const e = this.edgesOrder[this.stepIndex];
 
-  // 🔹 First highlight the source node (yellow → red)
+  // highlight source node
   this.nodeElements
     .filter(d => d.data.id === e.from)
     .transition()
     .duration(this.speedMs / 3)
-    .attr('fill', '#ef4444') // 🔴 active red
-    .attr('stroke', '#b91c1c'); // darker red stroke
+    .attr('fill', '#ef4444')
+    .attr('stroke', '#b91c1c');
 
-  this.svg
-    .selectAll('text')
-    .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === e.from)
-    .transition()
-    .duration(this.speedMs / 3)
-    .attr('fill', '#ffffff'); // bright label
+  // reusable tooltip function
+  const showTooltip = (node: d3.HierarchyNode<GraphNode>) => {
+    const tooltip = this.svg.select<SVGGElement>("#node-tooltip");
+    const textEl = tooltip.select("text");
+    const rectEl = tooltip.select("rect");
 
-  // Highlight edge
+    textEl.text(node.data.label);
+    const bbox = (textEl.node() as SVGTextElement).getBBox();
+
+    const paddingX = 10, paddingY = 6;
+    const tooltipWidth = bbox.width + paddingX * 2;
+    const tooltipHeight = bbox.height + paddingY * 2;
+
+    textEl
+      .attr("x", tooltipWidth / 2)
+      .attr("y", tooltipHeight / 2 + bbox.height / 4);
+
+    rectEl
+      .attr("width", tooltipWidth)
+      .attr("height", tooltipHeight);
+
+    let x = (node.x ?? 0) - tooltipWidth / 2;
+    let y = (node.y ?? 0) - tooltipHeight - 10;
+
+    const svgWidth = +this.svg.attr("width");
+    if (x < 0) x = 0;
+    if (x + tooltipWidth > svgWidth) x = svgWidth - tooltipWidth;
+    if (y < 0) y = (node.y ?? 0) + 40;
+
+    tooltip
+      .style("display", "block")
+      .attr("transform", `translate(${x}, ${y})`);
+  };
+
+  // show tooltip for source node
+  const sourceNode = this.nodeElements.filter(d => d.data.id === e.from).datum();
+  if (sourceNode) showTooltip(sourceNode);
+
+  // highlight edge
   const edgePath = this.linkElements.filter(
     d => d.source.data.id === e.from && d.target.data.id === e.to
   );
+  const pathEl = edgePath.node() as SVGLineElement;
+
   edgePath
     .transition()
     .duration(this.speedMs / 3)
-    .attr('stroke', '#10b981') // 🟢 green path
+    .attr('stroke', '#10b981')
     .attr('stroke-width', 3);
 
-  // Animate green dot moving along edge
-  const pathEl = edgePath.node() as SVGLineElement;
   if (pathEl) {
     const length = pathEl.getTotalLength();
-    const dot = this.svg
-      .append('circle')
+    const dot = this.svg.append('circle')
       .attr('r', 4)
       .attr('fill', '#10b981')
       .attr('opacity', 1)
       .raise();
 
-    dot
-      .transition()
+    dot.transition()
       .duration(this.speedMs)
       .attrTween('transform', () => t => {
         const p = pathEl.getPointAtLength(t * length);
@@ -358,27 +445,25 @@ private tickD3() {
       .on('end', () => {
         dot.remove();
 
-        // 🔹 After traversal finishes, mark target node as visited
-        this.nodeElements
-          .filter(d => d.data.id === e.to)
+        // mark target node + tooltip
+        const targetNode = this.nodeElements.filter(d => d.data.id === e.to).datum();
+        if (targetNode) showTooltip(targetNode);
+
+        this.nodeElements.filter(d => d.data.id === e.to)
           .transition()
           .duration(this.speedMs / 2)
-          .attr('fill', '#ef4444') // 🔴 visited red
+          .attr('fill', '#ef4444')
           .attr('stroke', '#b91c1c');
 
-        this.svg
-          .selectAll('text')
-          .filter(d => (d as d3.HierarchyNode<GraphNode>).data.id === e.to)
-          .transition()
-          .duration(this.speedMs / 2)
-          .attr('fill', '#ffffff');
+        // hide tooltip after a short delay
+        setTimeout(() => this.svg.select("#node-tooltip").style("display", "none"), this.speedMs / 2);
 
-        // Move to next edge
         this.stepIndex++;
         this.timerRef = setTimeout(() => this.tickD3(), this.speedMs);
       });
   }
 }
+
 
 
 
@@ -662,6 +747,27 @@ submitVivaAnswers() {
   this.vivaSubmitted = true;
   this.vivaLoading = false;
   this.cdr.detectChanges();
+}
+
+
+
+showVisualization = false;
+
+openVisualization() {
+  this.showVisualization = true;
+  setTimeout(() => {
+    if (this.outputRaw?.nodes && this.outputRaw?.edges) {
+      d3.select('#graph-container').selectAll('*').remove();
+      this.renderAndPrepareGraph(this.outputRaw.nodes, this.outputRaw.edges);
+      this.graphRendered = true;
+      this.cdr.detectChanges();
+    }
+  }, 0);
+}
+
+
+closeVisualization() {
+  this.showVisualization = false;
 }
 
 

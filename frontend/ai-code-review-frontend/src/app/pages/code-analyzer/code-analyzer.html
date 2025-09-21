@@ -71,24 +71,25 @@
 
     <!-- Tabs -->
     <div>
-      <div class="flex gap-4 mb-4">
-        <button (click)="setActiveTab('analysis')" [ngClass]="{'bg-green-600': activeTab==='analysis'}"
-                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
-          📘 Static Analysis
-        </button>
-        <button (click)="setActiveTab('visualization')" [ngClass]="{'bg-green-600': activeTab==='visualization'}"
-                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
-          📈 Visualization
-        </button>
-        <button (click)="setActiveTab('suggestions')" [ngClass]="{'bg-green-600': activeTab==='suggestions'}"
-                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
-          🤖 AI Suggestions
-        </button>
-        <button (click)="setActiveTab('viva')" [ngClass]="{'bg-purple-600': activeTab==='viva'}"
-                class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-purple-500 transition">
-          🎤 Viva
-        </button>
-      </div>
+      <!-- Tabs -->
+<div class="flex gap-4 mb-4">
+  <button (click)="setActiveTab('analysis')" [ngClass]="{'bg-green-600': activeTab==='analysis'}"
+          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+    📘 Static Analysis
+  </button>
+  <button (click)="openVisualization()" 
+          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+    📈 Visualization
+  </button>
+  <button (click)="setActiveTab('suggestions')" [ngClass]="{'bg-green-600': activeTab==='suggestions'}"
+          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-green-500 transition">
+    🤖 AI Suggestions
+  </button>
+  <button (click)="setActiveTab('viva')" [ngClass]="{'bg-purple-600': activeTab==='viva'}"
+          class="px-4 py-2 rounded bg-gray-700 text-white hover:bg-purple-500 transition">
+    🎤 Viva
+  </button>
+</div>
 
       <!-- Static Analysis Report -->
       <div *ngIf="activeTab==='analysis'" class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
@@ -110,31 +111,7 @@
       </div>
 
      <!-- Visualization -->
-<div *ngIf="activeTab==='visualization'" class="w-full bg-gray-900 px-4 py-6">
-  <div class="flex items-center justify-between mb-4 px-2">
-    <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
-    <div class="flex items-center gap-2">
-      <label class="text-sm text-gray-300">Speed (ms):</label>
-      <input type="number" [(ngModel)]="speedMs" 
-             class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1">
-      <button (click)="playD3()" 
-              class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded">▶️ Play</button>
-      <button (click)="pauseD3()" 
-              class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded">⏸️ Pause</button>
-      <button (click)="resetD3()" 
-              class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded">⟲ Reset</button>
-    </div>
-  </div>
 
-  <!-- Add scrollable container with padding on all sides -->
-  <div class="overflow-auto" style="padding: 0 200px 100px 200px;">
-    <div id="graph-container" style="min-width:2000px; min-height:1000px;"></div>
-  </div>
-
-  <p class="text-gray-400 text-xs mt-2 px-2">
-    Tip: Nodes and edges are highlighted in DFS order. Scroll horizontally for large diagrams.
-  </p>
-</div>
 
 
       <!-- AI Suggestions -->
@@ -205,6 +182,47 @@
   </div>
 </div>
 
+
+
+
+
+<!-- Fullscreen Modal -->
+<div *ngIf="showVisualization"
+     class="fixed inset-0 z-50 bg-black flex flex-col animate-fadeIn"> <!-- 🔹 no opacity -->
+
+  <!-- Header -->
+<div class="flex justify-between items-center p-4 bg-gray-700 shadow-md rounded-t-md">
+  <h3 class="text-2xl font-bold text-green-400">📈 Code Flow Visualization</h3>
+  <button (click)="closeVisualization()" 
+          class="text-white bg-red-500 hover:bg-red-600 px-4 py-1 rounded shadow-sm">
+     Close
+  </button>
+</div>
+
+
+  <!-- Controls -->
+<!-- Controls -->
+<div class="flex items-center gap-3 p-4 bg-gray-800 shadow-md rounded-b-md">
+  <label class="text-sm text-gray-200 font-medium">Speed (ms):</label>
+  <input type="number" [(ngModel)]="speedMs"
+         class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
+  <button (click)="playD3()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded shadow-sm">▶️ Play</button>
+  <button (click)="pauseD3()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded shadow-sm">⏸️ Pause</button>
+  <button (click)="resetD3()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow-sm">⟲ Reset</button>
+</div>
+
+
+  <!-- Graph Fullscreen Scrollable -->
+  <div class="flex-1 overflow-auto bg-black p-20"> <!-- 🔹 added padding + solid black -->
+    <div id="graph-container" class="min-w-[2000px] min-h-[1000px]"></div>
+  </div>
+
+  <p class="text-gray-400 text-xs mt-2 px-6 pb-4">
+    Tip: Scroll & zoom for large diagrams. Nodes highlight in DFS order.
+  </p>
+</div>
+
+
 <style>
   .glow-node > rect, .glow-node > polygon, .glow-node > path {
     stroke: #22c55e !important;
@@ -220,4 +238,9 @@
     fill: #93c5fd !important;
     font-weight: 700;
   }
+
+  @keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
 </style>
