@@ -1,138 +1,90 @@
+
+---
+
 # 💡 AI Code Review Assistant
 
-**AI Code Review Assistant** is a full-stack offline web app that helps you analyze code, detect plagiarism, and get AI-generated suggestions across multiple languages. It's ideal for students, developers, and educators who want smart, private, and visual code reviews.
+**AI Code Review Assistant** is a full-stack  web application that helps you **analyze code, detect plagiarism, visualize logic, and receive AI-driven suggestions** across multiple programming languages.
+It is designed for **students, educators, and developers** who want **private, smart, and visual code reviews** without relying on cloud services.
 
 ---
 
-## 📌 What It Does
+## 📌 Features
 
-* 📊 **Static Code Analysis**
-  Supports: **Java, Python, JavaScript, C, C++**
-  Provides metrics, suggestions, and Mermaid.js flowcharts.
+✅ **Static Code Analysis**
 
-* 🤖 **AI Suggestions (LLM)**
-  Uses a local **TinyLLaMA model** to generate code improvements for multiple languages.
+* Supports **Java, Python, JavaScript, C, C++**
+* Provides metrics: Lines of Code (LOC), functions, classes, loops, conditionals
+* Code quality insights and suggestions
 
-* 🔍 **Plagiarism Detection**
-  Detects similarity using **Levenshtein Distance** and **Token-based (Jaccard) similarity**.
+✅ **Visualization**
 
-* 📦 **Batch Processing**
-  (Coming Soon) Upload ZIP or GitHub repo and analyze files in bulk.
+* Generates flowcharts of code execution paths
+* Supports **nested structures, loops, and conditions**
+* Interactive diagrams rendered via **D3.js**
 
----
+✅ **AI Suggestions (LLM Integration)**
 
-## 🗂️ Folder Structure
+* Powered by **TinyLLaMA** (via `llama-cpp-python`)
+* Provides **concise, context-aware improvements**
+* Language-agnostic suggestions for best practices
 
-```
-AI-CODE-REVIEW-ASSISTANT/
-├── Algorithms/             # Java logic (parsing, similarity, etc.)
-├── backend/                # Spring Boot backend (Java)
-│   ├── controller/
-│   ├── service/
-│   ├── model/
-│   └── util/
-├── frontend/               # Angular 20 + Tailwind UI (Mermaid, Monaco)
-│   └── ai-code-review-frontend/
-├── local-llm/              # TinyLLaMA-based Flask server (AI suggestions)
-│   ├── tinyllama_server.py
-├── microservice/           # Unified Python microservice (analysis + plagiarism)
-│   ├── app.py              # Entry point
-│   └── analysis/           # Multi-language static analysis logic
-├── resources/              # Screenshots, diagrams, assets
-└── README.md
-```
+✅ **Plagiarism Detection**
+
+* **Levenshtein Distance** → Measures edit distance between two code files
+* **Token-based Jaccard Similarity** → Compares structural/code token overlap
+
+✅ **Batch Processing**
+
+* Upload a **GitHub repo link** 
+* Analyze multiple files in one go
+* Consolidated results and reports
+
+✅ **Report Generation** 
+
+* Exportable reports (PDF)
+
+✅ **Frontend Features**
+
+* Built with **Angular 20 + TailwindCSS**
+* Integrated **Monaco Editor** (VS Code editor) with syntax highlighting
+* Tabbed interface for **Analysis, Visualization, Suggestions, and Plagiarism**
+* D3.js integration for dynamic diagrams
+
+✅ **Backend Features**
+
+* **Spring Boot (Java)** → API gateway, plagiarism (Java), static analysis (Java),AI integration
+* **Flask Microservice (Python)** → Multi-language static analysis & plagiarism detection
+* Microservice-based architecture for modularity
 
 ---
 
 ## ⚙️ Tech Stack
 
-| Layer      | Stack                                              |
-| ---------- | -------------------------------------------------- |
-| Frontend   | Angular 20, TailwindCSS, Monaco Editor, Mermaid.js |
-| Backend    | Spring Boot (Java) + Flask (Python)                |
-| AI Engine  | TinyLLaMA via llama-cpp-python                     |
-| Plagiarism | Levenshtein, Token Jaccard                         |
-| Analysis   | JavaParser, Python AST, pyjsparser, Clang AST      |
+| Layer          | Stack                                              |
+| -------------- | -------------------------------------------------- |
+| **Frontend**   | Angular 20, TailwindCSS, Monaco Editor,D3.js       |
+| **Backend**    | Spring Boot (Java), Flask (Python)                 |
+| **AI Engine**  | TinyLLaMA                                          |
+| **Plagiarism** | Levenshtein Distance, Token Jaccard                |
+| **Analysis**   | JavaParser, Python AST, PyJsParser, Clang AST      |
 
 ---
 
-## 🚀 How to Run
+## 🖼️ Screenshots
 
-### 🧠 AI Server (TinyLLaMA)
+### 📍 Homepage
 
-```bash
-cd local-llm
-python3 tinyllama_server.py
-```
+> *(Add your homepage screenshot here)*
 
-### 🔍 Python Microservice (Analysis + Plagiarism)
-
-```bash
-cd microservice
-python3 app.py
-```
-
-### ☕ Java Backend (Spring Boot)
-
-```bash
-cd backend
-./mvnw spring-boot:run
-```
-
-### 💻 Angular Frontend
-
-```bash
-cd frontend/ai-code-review-frontend
-npm install
-ng serve
-```
-
----
-
-## 🔌 Key APIs
-
-### Static Analysis
-
-```
-POST /analyze
-{ code: "...", language: "python" }
-```
-
-### AI Suggestions
-
-```
-POST /chat (TinyLLaMA server)
-{ prompt: "Suggest improvements for..." }
-```
-
-### Plagiarism Check
-
-```
-POST /plagiarism
-{ code1: "...", code2: "..." }
-```
-
----
-
-## 🧪 Features Status
-
-| Feature                   | Status         |
-| ------------------------- | -------------- |
-| Java Static Analysis      | ✅ Completed    |
-| Python/JS/C/C++ Analysis  | ✅ Completed    |
-| Mermaid Flowcharts        | ✅ Completed    |
-| Plagiarism Detection      | ✅ Completed    |
-| AI Suggestions (LLM)      | ✅ Completed    |
-| Monaco Editor UI          | ✅ Completed    |
-| Batch Upload (ZIP/GitHub) | 🚧 In Progress |
-| Export Reports (PDF)      | 🚧 Planned     |
-| Auth / User Profiles      | 🚧 Planned     |
+`![Homepage Screenshot](resources/home-page.png)`
 
 ---
 
 ## 📚 Author
 
-> 🎓 MCA Minor Project
-> **Murali Krishna (CHN24MCA-2039)**
-> *Academic/Demo use only*
+🎓 **MCA Minor Project**
+👨‍💻 **Murali Krishna (CHN24MCA-2039)**
+📌 *For Academic & Demo Use Only*
+
+---
 
