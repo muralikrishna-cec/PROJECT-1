@@ -61,4 +61,4 @@ def generate_viva_questions(code: str, language: str, count: int = 5):
         return tiny_resp
 
     # Step 3: Both unavailable
-    return {"response": "❌ Gemini & TinyLLaMA unavailable. Please try again later."}
+    return {"response": "❌ unavailable. Please try again later."}

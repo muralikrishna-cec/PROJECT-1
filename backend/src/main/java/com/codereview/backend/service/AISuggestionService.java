@@ -18,8 +18,8 @@ public class AISuggestionService {
 
     // --- Gemini API keys (rotate if one fails) ---
     private final String[] GEMINI_KEYS = {
-            "AIzaSyDIJYia8LBXkP94LZ8wkmaBtGCzTXmgO-Y",
-            "AIzaSyCGm1uGRJhEfl9cKPGNOSku4Ky1uL2G-fU"
+            "",
+            ""
     };
     private final AtomicInteger keyIndex = new AtomicInteger(0);
 

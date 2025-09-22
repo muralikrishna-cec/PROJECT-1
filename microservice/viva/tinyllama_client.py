@@ -5,8 +5,8 @@ import json
 
 # Gemini API keys
 GEMINI_API_KEYS = [
-    os.getenv("GEMINI_API_KEY1", "AIzaSyDIJYia8LBXkP94LZ8wkmaBtGCzTXmgO-Y"),
-    os.getenv("GEMINI_API_KEY2", "AIzaSyCGm1uGRJhEfl9cKPGNOSku4Ky1uL2G-fU")
+    os.getenv("GEMINI_API_KEY1", ""),
+    os.getenv("GEMINI_API_KEY2", "")
 ]
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
@@ -17,8 +17,12 @@ TINYLAMA_API = "http://localhost:5000/chat"
 # --- Gemini Request ---
 def generate_with_gemini(language: str, code: str, count: int = 5):
     prompt = f"""
-    Generate exactly 5 multiple-choice viva questions 
-    for {language} programming based on the given code.
+    You are an examiner conducting a postgraduate-level viva (oral exam) in {language} programming.
+    Based on the following code, generate exactly 5 multiple-choice questions (MCQs).
+
+    - 3 questions should test general concepts and advanced topics in {language} programming (not tied to the code).
+    - 2 questions should be directly about the given code, testing logic, behavior, or output.
+
 
     Code:
     ```{language}
