@@ -75,7 +75,7 @@ It is designed for **students, educators, and developers** who want **private, s
 ### 📍 Homepage
 
 
-![Homepage Screenshot](resources/home-page.png)
+![Homepage Screenshot](resources/homepage.png)
 
 ---
 
