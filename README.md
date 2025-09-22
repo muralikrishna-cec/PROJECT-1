@@ -8,6 +8,13 @@ It is designed for **students, educators, and developers** who want **private, s
 
 ---
 
+### 📍 Homepage
+
+
+![Homepage Screenshot](resources/homepage.png)
+
+---
+
 ## 📌 Features
 
 ✅ **Static Code Analysis**
@@ -70,14 +77,6 @@ It is designed for **students, educators, and developers** who want **private, s
 
 ---
 
-## 🖼️ Screenshots
-
-### 📍 Homepage
-
-
-![Homepage Screenshot](resources/homepage.png)
-
----
 
 ## 📚 Author
 
