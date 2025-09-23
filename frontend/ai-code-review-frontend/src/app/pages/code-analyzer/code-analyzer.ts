@@ -125,9 +125,20 @@ private nodeElements!: d3.Selection<SVGCircleElement, d3.HierarchyNode<GraphNode
     }
   }
 
+
+
 submitCode(): void {
   if (!this.monacoEditorInstance) return;
-  const code = this.monacoEditorInstance.getValue();
+
+  const rawCode = this.monacoEditorInstance.getValue();
+  const code = (rawCode || "").trim();
+
+  // 🚨 Validation: Empty or null code
+  if (!code) {
+    alert("❌ Please enter some code before submitting for analysis.");
+    return; // ⛔ Stop here, don’t call backend
+  }
+
   const payload = { language: this.selectedLang, code };
 
   // reset AI suggestions
@@ -161,6 +172,7 @@ submitCode(): void {
     }
   });
 }
+
 
 
   private populateMetricsAndReport(res: AnalysisResponse) {
@@ -473,13 +485,22 @@ private tickD3() {
 async fetchAISuggestionsTyping() {
   if (!this.monacoEditorInstance) return;
 
+  // ✅ Get editor content
+  const code = this.monacoEditorInstance.getValue().trim();
+  if (!code) {
+    this.aiSuggestions = ["❌ Please enter some code before requesting suggestions."];
+    this.displayedSuggestions = [...this.aiSuggestions];
+    this.isTyping = false;
+    this.cdr.detectChanges();
+    return; // ⛔ Stop execution (don't call backend)
+  }
+
   // ✅ Cancel any previous typing in progress
   if (this.typingInterval) {
     clearInterval(this.typingInterval);
     this.typingInterval = null;
   }
 
-  const code = this.monacoEditorInstance.getValue();
   const payload = { language: this.selectedLang, code };
 
   // Reset UI state
@@ -492,29 +513,25 @@ async fetchAISuggestionsTyping() {
       this.http.post<any>('http://localhost:8080/api/ai-suggest', payload)
     );
 
-    // ✅ Get clean response text
-    const fullText: string = (res?.response && res.response.trim().length > 0)
-      ? res.response
-      : "❌ No AI suggestions available.";
+    const fullText: string =
+      (res?.response && res.response.trim().length > 0)
+        ? res.response
+        : "❌ No AI suggestions available.";
 
-    // Split into lines
     this.aiSuggestions = fullText
-                            .split(/\r?\n/)
-                            .filter(line => line.trim() !== '')
-                            .map(line => this.highlightLine(line));
+      .split(/\r?\n/)
+      .filter(line => line.trim() !== '')
+      .map(line => this.highlightLine(line));
 
-    // 🚨 Special handling for rate limiter message
     if (fullText.includes("Please try again after")) {
-  this.displayedSuggestions = [
-    `<span class="text-yellow-400 font-bold">⚠️ ${fullText}</span>`
-  ];
-  this.isTyping = false;
-  this.cdr.detectChanges();
-  return;
-}
+      this.displayedSuggestions = [
+        `<span class="text-yellow-400 font-bold">⚠️ ${fullText}</span>`
+      ];
+      this.isTyping = false;
+      this.cdr.detectChanges();
+      return;
+    }
 
-
-    // Otherwise animate line by line
     for (const line of this.aiSuggestions) {
       await this.typeLine(line);
     }
@@ -527,6 +544,9 @@ async fetchAISuggestionsTyping() {
     this.cdr.detectChanges();
   }
 }
+
+
+
 
 typeLine(line: string): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -578,7 +598,15 @@ highlightLine(line: string): string {
 
 fetchAISuggestions() {
   if (!this.monacoEditorInstance) return;
-  const code = this.monacoEditorInstance.getValue();
+
+  const code = this.monacoEditorInstance.getValue().trim();
+  if (!code) {
+    this.aiSuggestions = ["❌ Please enter some code before requesting suggestions."];
+    this.displayedSuggestions = [...this.aiSuggestions];
+    this.cdr.detectChanges();
+    return;
+  }
+
   const payload = { language: this.selectedLang, code };
 
   this.http.post<any>('http://localhost:8080/api/ai-suggest', payload).subscribe({
@@ -593,9 +621,9 @@ fetchAISuggestions() {
         this.displayedSuggestions = [...this.aiSuggestions];
       } else {
         this.aiSuggestions = fullText
-                            .split(/\r?\n/)
-                            .filter(line => line.trim() !== '')
-                            .map(line => this.highlightLine(line));
+          .split(/\r?\n/)
+          .filter(line => line.trim() !== '')
+          .map(line => this.highlightLine(line));
 
         this.displayedSuggestions = [...this.aiSuggestions];
       }
@@ -646,7 +674,22 @@ fetchAISuggestions() {
 
 fetchVivaQuestions() {
   if (!this.monacoEditorInstance) return;
-  
+
+  const code = this.monacoEditorInstance.getValue().trim();
+
+  // 🚨 Validation: Empty code
+  if (!code) {
+    this.vivaResult = `<p class="text-red-400 font-semibold">❌ Please enter some code before generating viva questions.</p>`;
+    this.vivaQuestions = [];
+    this.vivaAnswers = [];
+    this.totalMarks = 0;
+    this.marksPerQuestion = 0;
+    this.vivaSubmitted = true;  // block submit since nothing to answer
+    this.vivaLoading = false;
+    this.cdr.detectChanges();
+    return; // ⛔ stop here
+  }
+
   this.vivaLoading = true;
   this.vivaSubmitted = false;
   this.vivaQuestions = [];
@@ -656,22 +699,29 @@ fetchVivaQuestions() {
   this.vivaResult = ''; // clear old result
 
   const payload = {
-    code: this.monacoEditorInstance.getValue(),
+    code,
     language: this.selectedLang
   };
 
   this.http.post<any>('http://localhost:8000/viva', payload).subscribe({
     next: res => {
-      if (res?.response) {
-        // ⚠️ Show rate limit / error message directly
-        this.vivaResult = `<p class="text-red-400 font-semibold">${res.response}</p>`;
+      // 🚨 Rate-limit or error response
+      if (res?.response && 
+   (res.response.toLowerCase().includes("try again later") || 
+    res.response.toLowerCase().includes("try again after"))) {
+        this.vivaResult = `<p class="text-yellow-400 font-semibold">⚠️ ${res.response}</p>`;
         this.vivaQuestions = [];
         this.vivaAnswers = [];
         this.totalMarks = 0;
         this.marksPerQuestion = 0;
-        this.vivaSubmitted = true; // so UI can show it
-      } else if (res?.questions && res.questions.length > 0) {
-        // ✅ Normal questions flow
+        this.vivaSubmitted = true;   // show result, disable submit
+        this.vivaLoading = false;
+        this.cdr.detectChanges();
+        return; // ⛔ stop here, don’t continue
+      }
+
+      // ✅ Normal questions flow
+      if (res?.questions && res.questions.length > 0) {
         this.vivaQuestions = res.questions.map((q: any, index: number) => ({
           index: index + 1,
           question: q.question,
@@ -682,7 +732,6 @@ fetchVivaQuestions() {
         this.totalMarks = res.marks || this.vivaQuestions.length;
         this.marksPerQuestion = this.totalMarks / this.vivaQuestions.length;
         this.vivaAnswers = new Array(this.vivaQuestions.length).fill(null);
-
       } else {
         console.warn('No questions received from backend.');
         this.vivaQuestions = [];
@@ -704,6 +753,8 @@ fetchVivaQuestions() {
     }
   });
 }
+
+
 
 
 

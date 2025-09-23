@@ -31,44 +31,74 @@ export class BatchProcessingComponent {
   }
 
   // ✅ Analyze Batch (GitHub repo or ZIP file)
-  analyzeBatch() {
-    this.loading = true;
-    this.result = [];
-    this.error = '';
-    this.cdr.detectChanges();
+// ✅ Analyze Batch (GitHub repo or ZIP file)
+analyzeBatch() {
+  this.loading = true;
+  this.result = [];
+  this.error = '';
+  this.cdr.detectChanges();
 
-    const apiUrl = 'http://localhost:8000/batch';
+  const apiUrl = 'http://localhost:8000/batch';
 
-    if (this.inputType === 'github') {
-      if (!this.githubUrl.trim()) {
-        this.error = 'Please enter a GitHub repository URL';
-        this.loading = false;
-        return;
-      }
-
-      const payload = { type: 'github', github_url: this.githubUrl };
-
-      this.http.post(apiUrl, payload, { responseType: 'json' }).subscribe({
-        next: (res: any) => this.handleResponse(res),
-        error: (err) => this.handleError(err),
-      });
-    } else if (this.inputType === 'file') {
-      if (!this.selectedFile) {
-        this.error = 'Please select a ZIP file';
-        this.loading = false;
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('type', 'file');
-      formData.append('file', this.selectedFile);
-
-      this.http.post(apiUrl, formData, { responseType: 'json' }).subscribe({
-        next: (res: any) => this.handleResponse(res),
-        error: (err) => this.handleError(err),
-      });
-    }
+  // 🚨 Check: Both inputs provided
+  if (this.githubUrl.trim() && this.selectedFile) {
+    this.error = '❌ Please provide either a GitHub repository URL OR a ZIP file, not both.';
+    this.loading = false;
+    return;
   }
+
+  if (this.inputType === 'github') {
+    // 🚨 Check: Empty URL
+    if (!this.githubUrl.trim()) {
+      this.error = '❌ Please enter a GitHub repository URL.';
+      this.loading = false;
+      return;
+    }
+
+    // 🚨 Check: Not a valid GitHub link
+    if (!this.githubUrl.startsWith('https://github.com/')) {
+      this.error = '❌ Invalid URL. Please enter a valid GitHub repository link (https://github.com/...).';
+      this.loading = false;
+      return;
+    }
+
+    const payload = { type: 'github', github_url: this.githubUrl };
+
+    this.http.post(apiUrl, payload, { responseType: 'json' }).subscribe({
+      next: (res: any) => this.handleResponse(res),
+      error: (err) => this.handleError(err),
+    });
+
+  } else if (this.inputType === 'file') {
+    // 🚨 Check: No file selected
+    if (!this.selectedFile) {
+      this.error = '❌ Please select a ZIP file.';
+      this.loading = false;
+      return;
+    }
+
+    // 🚨 Check: File must be .zip
+    if (!this.selectedFile.name.endsWith('.zip')) {
+      this.error = '❌ Invalid file type. Please upload a ZIP file.';
+      this.loading = false;
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('type', 'file');
+    formData.append('file', this.selectedFile);
+
+    this.http.post(apiUrl, formData, { responseType: 'json' }).subscribe({
+      next: (res: any) => this.handleResponse(res),
+      error: (err) => this.handleError(err),
+    });
+  } else {
+    // 🚨 If no inputType chosen
+    this.error = '❌ Please select an input type (GitHub or ZIP file).';
+    this.loading = false;
+  }
+}
+
 
 // ✅ Handle API response
 private handleResponse(res: any) {
@@ -125,12 +155,28 @@ private handleResponse(res: any) {
 
 
 
-  // ✅ Handle API errors
-  private handleError(err: any) {
-    this.error = `⚠️ Service unavailable. Error: ${err.message || 'Unknown error'}`;
-    this.loading = false;
-    this.cdr.detectChanges();
+// ✅ Handle API errors
+private handleError(err: any) {
+  if (err.status === 0) {
+    // Backend not reachable
+    this.error = '⚠️ Service unavailable. Please check if the server is running.';
+  } else if (err.status === 400) {
+    this.error = '⚠️ Bad request. Please check your input (invalid GitHub link or file).';
+  } else if (err.status === 404) {
+    this.error = '⚠️ API endpoint not found.';
+  } else if (err.status === 429) {
+    this.error = '⚠️ Too many requests. Please try again later.';
+  } else if (err.status >= 500) {
+    this.error = '⚠️ Server error. Please try again later.';
+  } else {
+    // fallback: unknown error
+    this.error = `⚠️ Unexpected error (${err.status}): ${err.message || 'Unknown error'}`;
   }
+
+  this.loading = false;
+  this.cdr.detectChanges();
+}
+
 
 
  

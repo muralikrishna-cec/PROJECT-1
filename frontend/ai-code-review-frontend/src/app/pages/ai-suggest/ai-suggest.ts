@@ -28,12 +28,13 @@ export class AiSuggestComponent {
     private sanitizer: DomSanitizer
   ) {}
 
- getSuggestion(): void {
-  // Clear previous responses immediately
+
+
+getSuggestion(): void {
   this.displayedLines = [];
   this.responseLines = [];
   this.formattedResponse = '';
-  this.cd.detectChanges(); // force UI update
+  this.cd.detectChanges();
   this.isTyping = false;
 
   if (!this.code.trim()) {
@@ -42,7 +43,6 @@ export class AiSuggestComponent {
     return;
   }
 
-  // Cancel any ongoing typing
   if (this.typingInterval) {
     clearInterval(this.typingInterval);
     this.typingInterval = null;
@@ -60,7 +60,6 @@ export class AiSuggestComponent {
   }).subscribe({
     next: (res: any) => {
       let fullText: string = '';
-
       try {
         const parsed = typeof res === 'string' ? JSON.parse(res) : res;
         fullText = parsed.response || res;
@@ -68,7 +67,6 @@ export class AiSuggestComponent {
         fullText = res;
       }
 
-      // Split response into lines
       this.responseLines = fullText.split(/\r?\n/).filter(l => l.trim() !== '');
       this.displayedLines = [];
       this.isTyping = true;
@@ -78,14 +76,21 @@ export class AiSuggestComponent {
         this.isTyping = false;
       });
     },
-    error: (err) => {
-      console.error('[AI Suggestion Error]', err);
-      this.displayedLines = ['❌ Failed to connect to AI backend.'];
+    error: () => {
+      // ✅ Always show a clean, user-friendly message
+      this.displayedLines = [
+        '⚠️ AI Suggestion service is not available at the moment.',
+        '🔄 Please try again later.'
+      ];
       this.updateFormattedResponse();
       this.loading = false;
     }
   });
 }
+
+
+
+
 
 
   private async startTypingAnimation(): Promise<void> {

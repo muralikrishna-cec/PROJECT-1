@@ -20,6 +20,7 @@ public class AISuggestionService {
     private final String[] GEMINI_KEYS = {
             "",
             ""
+
     };
     private final AtomicInteger keyIndex = new AtomicInteger(0);
 

@@ -64,23 +64,43 @@ export class PlagiarismCheckComponent implements AfterViewInit {
     }
   }
 
-  checkPlagiarism() {
+checkPlagiarism() {
   this.loading = true;
   this.result = '';
   this.cdr.detectChanges(); // Show "Checking..."
 
-  const code1 = this.monacoEditor1.getValue();
-  const code2 = this.monacoEditor2.getValue();
+  const code1 = this.monacoEditor1?.getValue()?.trim() || '';
+  const code2 = this.monacoEditor2?.getValue()?.trim() || '';
 
-  const payload = {
-    code1,
-    code2,
-    language: this.selectedLanguage
-  };
+  // 🚨 Check if both editors are empty
+  if (!code1 && !code2) {
+    alert('❌ Please enter code in both editors.');
+    this.loading = false;
+    return;
+  }
 
-  // ✅ Choose correct backend based on language
- const apiUrl = 'http://localhost:8080/api/plagiarism';
+  // 🚨 Check if one editor is empty
+  if (!code1) {
+    alert('❌ Please enter code in the first editor.');
+    this.loading = false;
+    return;
+  }
 
+  if (!code2) {
+    alert('❌ Please enter code in the second editor.');
+    this.loading = false;
+    return;
+  }
+
+  // 🚨 Check language selected
+  if (!this.selectedLanguage) {
+    alert('❌ Please select a programming language.');
+    this.loading = false;
+    return;
+  }
+
+  const payload = { code1, code2, language: this.selectedLanguage };
+  const apiUrl = 'http://localhost:8080/api/plagiarism';
 
   this.http.post(apiUrl, payload, { responseType: 'text' }).subscribe({
     next: res => {
@@ -106,6 +126,7 @@ export class PlagiarismCheckComponent implements AfterViewInit {
     }
   });
 }
+
 
 
 }
